@@ -1,0 +1,224 @@
+{
+  "name": "ai-eco-meter",
+  "displayName": "AI Eco Meter — Pegada da IA",
+  "description": "Veja, de um jeito divertido e consciente, quanta energia, água e CO₂ o seu uso de IA consome — com tokens, médias e um planetinha que reage ao seu consumo.",
+  "version": "0.3.0",
+  "publisher": "paulojunior",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Visualization",
+    "Other"
+  ],
+  "keywords": [
+    "ai",
+    "sustentabilidade",
+    "energia",
+    "tokens",
+    "claude",
+    "copilot"
+  ],
+  "main": "./extension.js",
+  "extensionKind": [
+    "ui",
+    "workspace"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "aiEcoMeter",
+          "title": "AI Eco Meter",
+          "icon": "media/activity-icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "aiEcoMeter": [
+        {
+          "type": "webview",
+          "id": "aiEcoMeter.dashboard",
+          "name": "Pegada da IA"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "aiEcoMeter.openPanel",
+        "title": "Abrir painel completo",
+        "category": "AI Eco Meter",
+        "icon": "$(link-external)"
+      },
+      {
+        "command": "aiEcoMeter.refresh",
+        "title": "Atualizar dados",
+        "category": "AI Eco Meter",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "aiEcoMeter.logManual",
+        "title": "Registrar uso manual de IA (ChatGPT, Copilot, Gemini...)",
+        "category": "AI Eco Meter",
+        "icon": "$(add)"
+      },
+      {
+        "command": "aiEcoMeter.clearManual",
+        "title": "Apagar registros manuais",
+        "category": "AI Eco Meter"
+      },
+      {
+        "command": "aiEcoMeter.openSettings",
+        "title": "Ajustar estimativas",
+        "category": "AI Eco Meter"
+      },
+      {
+        "command": "aiEcoMeter.togglePets",
+        "title": "Mostrar/esconder bichinhos",
+        "category": "AI Eco Meter"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "aiEcoMeter.logManual",
+          "when": "view == aiEcoMeter.dashboard",
+          "group": "navigation@1"
+        },
+        {
+          "command": "aiEcoMeter.refresh",
+          "when": "view == aiEcoMeter.dashboard",
+          "group": "navigation@2"
+        },
+        {
+          "command": "aiEcoMeter.openPanel",
+          "when": "view == aiEcoMeter.dashboard",
+          "group": "navigation@3"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "AI Eco Meter",
+      "properties": {
+        "aiEcoMeter.dailyEnergyBudgetWh": {
+          "type": "number",
+          "default": 1000,
+          "minimum": 1,
+          "markdownDescription": "Sua **meta diária de energia** (Wh) para uso de IA. O humor do planetinha e os medidores são relativos a ela. Referência: 1 h de streaming de vídeo ≈ 77 Wh."
+        },
+        "aiEcoMeter.sources.claudeCode": {
+          "type": "boolean",
+          "default": true,
+          "description": "Ler o uso do Claude Code a partir dos logs locais (~/.claude/projects)."
+        },
+        "aiEcoMeter.sources.codex": {
+          "type": "boolean",
+          "default": true,
+          "description": "Ler o uso do OpenAI Codex CLI a partir dos logs locais (~/.codex/sessions)."
+        },
+        "aiEcoMeter.paths.claudeCode": {
+          "type": "string",
+          "default": "",
+          "description": "Pasta alternativa dos projetos do Claude Code. Vazio = ~/.claude/projects (ou $CLAUDE_CONFIG_DIR/projects)."
+        },
+        "aiEcoMeter.paths.codex": {
+          "type": "string",
+          "default": "",
+          "description": "Pasta alternativa das sessões do Codex. Vazio = ~/.codex/sessions (ou $CODEX_HOME/sessions)."
+        },
+        "aiEcoMeter.coefficients.whPer1kOutputTokens": {
+          "type": "number",
+          "default": 1,
+          "markdownDescription": "Energia estimada (Wh) por **1.000 tokens gerados** (saída), para um modelo de porte médio. Gerar tokens é a parte mais cara da inferência."
+        },
+        "aiEcoMeter.coefficients.whPer1kInputTokens": {
+          "type": "number",
+          "default": 0.1,
+          "markdownDescription": "Energia estimada (Wh) por **1.000 tokens de entrada** processados sem cache."
+        },
+        "aiEcoMeter.coefficients.whPer1kCacheWriteTokens": {
+          "type": "number",
+          "default": 0.12,
+          "markdownDescription": "Energia estimada (Wh) por **1.000 tokens gravados no cache** de contexto."
+        },
+        "aiEcoMeter.coefficients.whPer1kCacheReadTokens": {
+          "type": "number",
+          "default": 0.01,
+          "markdownDescription": "Energia estimada (Wh) por **1.000 tokens lidos do cache** (muito mais barato do que reprocessar)."
+        },
+        "aiEcoMeter.waterLitersPerKWh": {
+          "type": "number",
+          "default": 1.8,
+          "markdownDescription": "Litros de água por kWh (resfriamento do data center + parte da água usada na geração de eletricidade)."
+        },
+        "aiEcoMeter.gridCo2GramsPerKWh": {
+          "type": "number",
+          "default": 400,
+          "markdownDescription": "Intensidade de carbono da rede elétrica (g CO₂e/kWh). Média global ≈ 450; EUA ≈ 380."
+        },
+        "aiEcoMeter.modelMultipliers": {
+          "type": "object",
+          "default": {
+            "haiku": 0.35,
+            "nano": 0.2,
+            "mini": 0.35,
+            "flash": 0.35,
+            "sonnet": 1,
+            "opus": 2,
+            "fable": 3
+          },
+          "additionalProperties": {
+            "type": "number"
+          },
+          "markdownDescription": "Multiplicador de energia por família de modelo (o primeiro trecho do nome que combinar vale). Modelos maiores gastam mais por token."
+        },
+        "aiEcoMeter.refreshIntervalSeconds": {
+          "type": "number",
+          "default": 60,
+          "minimum": 10,
+          "description": "De quanto em quanto tempo (s) os logs são relidos."
+        },
+        "aiEcoMeter.showStatusBar": {
+          "type": "boolean",
+          "default": true,
+          "description": "Mostrar o consumo de hoje na barra de status."
+        },
+        "aiEcoMeter.pets.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Mostrar bichinhos em pixel art passeando no rodapé do painel."
+        },
+        "aiEcoMeter.pets.list": {
+          "type": "array",
+          "default": [
+            "gato",
+            "capivara",
+            "pato"
+          ],
+          "maxItems": 6,
+          "items": {
+            "type": "string",
+            "enum": [
+              "gato",
+              "cachorro",
+              "pato",
+              "capivara",
+              "tartaruga",
+              "caranguejo"
+            ]
+          },
+          "markdownDescription": "Quais bichinhos aparecem (até 6, pode repetir). Opções: `gato`, `cachorro`, `pato`, `capivara`, `tartaruga`, `caranguejo`."
+        },
+        "aiEcoMeter.pets.inEditor": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Mostrar os bichinhos (pequenos) passeando no editor, logo depois do código da última linha visível. Usa um recurso não oficial das decorações do editor."
+        }
+      }
+    }
+  }
+}

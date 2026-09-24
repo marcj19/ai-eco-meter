@@ -1,0 +1,3 @@
+.vscode/**
+*.vsix
+build-vsix.py
