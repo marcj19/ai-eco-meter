@@ -563,3 +563,8 @@ body[data-mode='panel'] .yard { background: linear-gradient(to bottom, transpare
 /* no painel completo os bichinhos são maiores */
 body[data-mode='panel'] .yard { height: 84px; }
 body[data-mode='panel'].has-pets .app { padding-bottom: 108px; }
+
+/* aba/seção "Bichinhos": só o quintal ocupando a view inteira */
+body[data-mode='yard'], body[data-mode='yard'] .app { background: transparent; padding: 0; }
+body[data-mode='yard'] .loading { display: none; }
+body[data-mode='yard'] .yard { top: 0; height: auto; background: none; }

@@ -8,8 +8,14 @@ os.chdir(ROOT)
 
 pkg = json.load(open('package.json', encoding='utf8'))
 files = ['package.json', 'extension.js', 'README.md', 'LICENSE']
+if pkg.get('icon'):
+    files.append(pkg['icon'])
 for folder in ('src', 'media'):
     files += [f'{folder}/{f}' for f in sorted(os.listdir(folder))]
+
+icon_meta = f"<Icon>extension/{pkg['icon']}</Icon>" if pkg.get('icon') else ''
+icon_asset = (f'<Asset Type="Microsoft.VisualStudio.Services.Icons.Default" Path="extension/{pkg["icon"]}" Addressable="true" />'
+              if pkg.get('icon') else '')
 
 manifest = f'''<?xml version="1.0" encoding="utf-8"?>
 <PackageManifest Version="2.0.0" xmlns="http://schemas.microsoft.com/developer/vsx-schema/2011" xmlns:d="http://schemas.microsoft.com/developer/vsx-schema-design/2011">
@@ -25,6 +31,7 @@ manifest = f'''<?xml version="1.0" encoding="utf-8"?>
       <Property Id="Microsoft.VisualStudio.Code.ExtensionKind" Value="{','.join(pkg.get('extensionKind', ['workspace']))}" />
     </Properties>
     <License>extension/LICENSE</License>
+    {icon_meta}
   </Metadata>
   <Installation><InstallationTarget Id="Microsoft.VisualStudio.Code"/></Installation>
   <Dependencies/>
@@ -32,11 +39,12 @@ manifest = f'''<?xml version="1.0" encoding="utf-8"?>
     <Asset Type="Microsoft.VisualStudio.Code.Manifest" Path="extension/package.json" Addressable="true" />
     <Asset Type="Microsoft.VisualStudio.Services.Content.Details" Path="extension/README.md" Addressable="true" />
     <Asset Type="Microsoft.VisualStudio.Services.Content.License" Path="extension/LICENSE" Addressable="true" />
+    {icon_asset}
   </Assets>
 </PackageManifest>'''
 
 types = {'.json': 'application/json', '.js': 'application/javascript', '.css': 'text/css', '.svg': 'image/svg+xml',
-         '.md': 'text/markdown', '.vsixmanifest': 'text/xml', '': 'text/plain'}
+         '.md': 'text/markdown', '.png': 'image/png', '.vsixmanifest': 'text/xml', '': 'text/plain'}
 content_types = ('<?xml version="1.0" encoding="utf-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
                  + ''.join(f'<Default Extension="{e}" ContentType="{t}"/>' for e, t in types.items()) + '</Types>')
 

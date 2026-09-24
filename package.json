@@ -1,10 +1,23 @@
 {
   "name": "ai-eco-meter",
   "displayName": "AI Eco Meter — Pegada da IA",
-  "description": "Veja, de um jeito divertido e consciente, quanta energia, água e CO₂ o seu uso de IA consome — com tokens, médias e um planetinha que reage ao seu consumo.",
-  "version": "0.3.0",
-  "publisher": "paulojunior",
+  "description": "Veja, de um jeito divertido e consciente, quanta energia, água e CO₂ o seu uso de IA consome (Claude Code, Codex, Gemini CLI, Antigravity e mais), com tokens, médias e bichinhos em pixel art.",
+  "version": "0.5.0",
+  "publisher": "pmxtecnologia",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/marcj19/ai-eco-meter.git"
+  },
+  "bugs": {
+    "url": "https://github.com/marcj19/ai-eco-meter/issues"
+  },
+  "homepage": "https://github.com/marcj19/ai-eco-meter#readme",
+  "icon": "icon.png",
+  "galleryBanner": {
+    "color": "#1f3b2c",
+    "theme": "dark"
+  },
   "engines": {
     "vscode": "^1.85.0"
   },
@@ -18,7 +31,10 @@
     "energia",
     "tokens",
     "claude",
-    "copilot"
+    "gemini",
+    "codex",
+    "antigravity",
+    "pets"
   ],
   "main": "./extension.js",
   "extensionKind": [
@@ -36,6 +52,13 @@
           "title": "AI Eco Meter",
           "icon": "media/activity-icon.svg"
         }
+      ],
+      "panel": [
+        {
+          "id": "aiEcoMeterYard",
+          "title": "Bichinhos",
+          "icon": "media/activity-icon.svg"
+        }
       ]
     },
     "views": {
@@ -44,6 +67,20 @@
           "type": "webview",
           "id": "aiEcoMeter.dashboard",
           "name": "Pegada da IA"
+        }
+      ],
+      "aiEcoMeterYard": [
+        {
+          "type": "webview",
+          "id": "aiEcoMeter.yardPanel",
+          "name": "Bichinhos"
+        }
+      ],
+      "explorer": [
+        {
+          "type": "webview",
+          "id": "aiEcoMeter.yardExplorer",
+          "name": "Bichinhos"
         }
       ]
     },
@@ -119,6 +156,16 @@
           "type": "boolean",
           "default": true,
           "description": "Ler o uso do OpenAI Codex CLI a partir dos logs locais (~/.codex/sessions)."
+        },
+        "aiEcoMeter.sources.geminiCli": {
+          "type": "boolean",
+          "default": true,
+          "description": "Ler o uso do Gemini CLI a partir dos logs locais (~/.gemini/tmp/*/chats). Tokens reais."
+        },
+        "aiEcoMeter.sources.antigravity": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Estimar o uso do **Antigravity** (~/.gemini/antigravity). As conversas são gravadas criptografadas, então o valor é uma **estimativa aproximada** pelo tamanho de cada conversa, não tokens reais."
         },
         "aiEcoMeter.paths.claudeCode": {
           "type": "string",
@@ -215,8 +262,18 @@
         },
         "aiEcoMeter.pets.inEditor": {
           "type": "boolean",
-          "default": true,
-          "markdownDescription": "Mostrar os bichinhos (pequenos) passeando no editor, logo depois do código da última linha visível. Usa um recurso não oficial das decorações do editor."
+          "default": false,
+          "markdownDescription": "Experimental: mostrar bichinhos pequenos dentro do editor, logo depois do código da última linha visível. Eles acompanham a rolagem do arquivo. Usa um recurso não oficial das decorações do editor."
+        },
+        "aiEcoMeter.paths.gemini": {
+          "type": "string",
+          "default": "",
+          "description": "Pasta alternativa das sessões do Gemini CLI. Vazio = ~/.gemini/tmp."
+        },
+        "aiEcoMeter.paths.antigravity": {
+          "type": "string",
+          "default": "",
+          "description": "Pasta alternativa dos dados do Antigravity. Vazio = ~/.gemini/antigravity."
         }
       }
     }

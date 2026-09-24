@@ -85,6 +85,8 @@
   const SOURCE = {
     claude: { name: 'Claude Code', color: '#d97757' },
     codex: { name: 'Codex CLI', color: '#10a37f' },
+    gemini: { name: 'Gemini CLI', color: '#4285f4' },
+    antigravity: { name: 'Antigravity', color: '#a78bfa' },
     manual: { name: 'Registro manual', color: '#9aa7b4' },
   };
 
@@ -433,7 +435,7 @@
       ${bar({ ...t, other: 0 }, tokTotal)}
       <div class="row-label"><span>Energia</span><span>${F.energy(r.wh)}</span></div>
       ${bar(e, whTotal)}
-      <div class="legend">${cats.map(([, n, c]) => `<span><i style="background:${c}"></i>${n}</span>`).join('')}${e.other > 0 ? '<span><i style="background:var(--c-other)"></i>Outros (imagens)</span>' : ''}</div>
+      <div class="legend">${cats.map(([, n, c]) => `<span><i style="background:${c}"></i>${n}</span>`).join('')}${e.other > 0 ? '<span><i style="background:var(--c-other)"></i>Valor fixo (oficial/imagem)</span>' : ''}</div>
       ${insight ? `<div class="insight">${insight}</div>` : ''}
     </section>`;
   }
@@ -589,12 +591,15 @@
       let st;
       if (!info || !info.enabled) st = 'desativado';
       else if (key === 'manual') st = info.requests ? `${F.int(info.requests)} registros` : 'nenhum registro';
+      else if (key === 'antigravity') st = info.requests ? `${F.int(info.requests)} conversas · estimativa` : 'nenhuma conversa encontrada';
       else st = info.requests ? `${F.int(info.requests)} req. · ${F.int(info.files)} arquivos` : 'nenhum log encontrado';
       return `<div class="source ${!info || !info.enabled || !info.requests ? 'off' : ''}" ${extra || ''}><i class="src-dot" style="background:${src.color}"></i>${src.name}<span class="s-state">${st}</span></div>`;
     };
     return `<div class="sources">
       ${row('claude', s.sources.claude, s.sources.claude && s.sources.claude.path ? `title="${esc(s.sources.claude.path)}"` : '')}
       ${row('codex', s.sources.codex, s.sources.codex && s.sources.codex.path ? `title="${esc(s.sources.codex.path)}"` : '')}
+      ${row('gemini', s.sources.gemini, s.sources.gemini && s.sources.gemini.path ? `title="${esc(s.sources.gemini.path)}"` : '')}
+      ${row('antigravity', s.sources.antigravity, s.sources.antigravity && s.sources.antigravity.path ? `title="${esc(s.sources.antigravity.path)}"` : '')}
       ${row('manual', s.sources.manual)}
     </div>`;
   }
@@ -622,6 +627,8 @@
           <li>Água: <code>${nf(c.waterLPerKWh, 2)} L/kWh</code> (resfriamento + geração de energia) · CO₂: <code>${F.int(c.co2gPerKWh)} g/kWh</code></li>
         </ul>
         <p>Referências: Google (2025) mediu ~0,24 Wh e ~0,26 mL de água por prompt mediano do Gemini; a Epoch AI (2025) estimou ~0,3 Wh por consulta típica ao GPT-4o; a análise de ciclo de vida da Mistral (2025) aponta ~45 mL de água e ~1,1 g CO₂e para uma resposta de 400 tokens, incluindo o treino. Uso agêntico (ferramentas como o Claude Code) envolve contextos enormes a cada chamada, por isso o consumo sobe rápido.</p>
+        <p><b>Tokens</b> do Claude Code, Codex CLI e Gemini CLI são <b>reais</b>, lidos dos logs de cada ferramenta. O <b>Antigravity</b> grava as conversas criptografadas: ali usamos uma <b>estimativa aproximada</b> pelo tamanho de cada conversa (~4 bytes por token, ~20% de texto gerado). Provavelmente fica abaixo do real, porque o agente reenvia o contexto a cada passo.</p>
+        <p>Nos <b>registros manuais</b> de ChatGPT e Gemini (perguntas rápidas e respostas longas), usamos os valores por pergunta divulgados pelas próprias empresas: ChatGPT ≈ 0,34 Wh e 0,32 mL (OpenAI, 2025); Gemini ≈ 0,24 Wh e 0,26 mL (Google, 2025).</p>
         <p>Nenhum dado sai do seu computador: tudo é lido dos logs locais.</p>
       </details>
     </section>
@@ -642,7 +649,7 @@
         </g>
       </svg>
       <h3>Ainda não encontrei uso de IA por aqui</h3>
-      <p>Leio automaticamente os logs locais do <b>Claude Code</b> e do <b>Codex CLI</b>. Usa ChatGPT, Copilot ou Gemini? Registre manualmente e acompanhe sua pegada.</p>
+      <p>Leio automaticamente os logs locais do <b>Claude Code</b>, <b>Codex CLI</b>, <b>Gemini CLI</b> e <b>Antigravity</b>. Usa ChatGPT, Copilot ou Gemini? Registre manualmente e acompanhe sua pegada.</p>
       <div class="actions">
         <button class="btn primary" data-act="logManual">＋ Registrar uso manual</button>
         <button class="btn" data-act="refresh"><span class="spin">⟳</span> Procurar de novo</button>
@@ -656,6 +663,11 @@
 
   function render(intro) {
     const s = state.snap;
+    if (MODE === 'yard') {
+      app.innerHTML = '';
+      updatePets(s);
+      return;
+    }
     app.classList.toggle('intro', !!intro && !reducedMotion);
     tipEl.classList.remove('show');
     clearInterval(tipTimer);

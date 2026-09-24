@@ -50,6 +50,7 @@ function newAcc() {
     tok: { in: 0, out: 0, cr: 0, cw: 0 },
     en: { in: 0, out: 0, cr: 0, cw: 0, other: 0 },
     wh: 0,
+    ml: 0,
     days: new Set(),
     hours: new Array(24).fill(0),
     models: new Map(),
@@ -58,7 +59,11 @@ function newAcc() {
   };
 }
 
-function addTo(acc, r, e, wh) {
+function waterOf(r, wh, cfg) {
+  return r.mlFixed != null ? r.mlFixed : wh * cfg.waterLPerKWh; // Wh × L/kWh = mL
+}
+
+function addTo(acc, r, e, wh, ml) {
   const req = r.requests || 1;
   acc.requests += req;
   acc.tok.in += r.inTok;
@@ -67,6 +72,7 @@ function addTo(acc, r, e, wh) {
   acc.tok.cw += r.cwTok;
   for (const k in e) acc.en[k] += e[k];
   acc.wh += wh;
+  acc.ml += ml;
   acc.days.add(dayKey(r.ts));
   acc.hours[new Date(r.ts).getHours()] += req;
   acc.first = Math.min(acc.first, r.ts);
@@ -98,7 +104,7 @@ function finish(acc, cfg, budgetDays) {
     tok: acc.tok,
     en: acc.en,
     wh: acc.wh,
-    ml: acc.wh * cfg.waterLPerKWh, // Wh × L/kWh = mL
+    ml: acc.ml,
     g: (acc.wh / 1000) * cfg.co2gPerKWh,
     activeDays: acc.days.size,
     budgetDays,
@@ -110,7 +116,7 @@ function finish(acc, cfg, budgetDays) {
 }
 
 function point(label, key) {
-  return { key, label, requests: 0, tokens: 0, wh: 0 };
+  return { key, label, requests: 0, tokens: 0, wh: 0, ml: 0 };
 }
 
 function buildSnapshot(records, sources, cfg, now = Date.now()) {
@@ -125,14 +131,16 @@ function buildSnapshot(records, sources, cfg, now = Date.now()) {
     if (!r.ts || r.ts > now + DAY) continue;
     const e = recordEnergy(r, cfg);
     const wh = e.in + e.out + e.cr + e.cw + e.other;
+    const ml = waterOf(r, wh, cfg);
     const tokens = r.inTok + r.outTok + r.crTok + r.cwTok;
-    for (const k of Object.keys(bounds)) if (r.ts >= bounds[k]) addTo(accs[k], r, e, wh);
+    for (const k of Object.keys(bounds)) if (r.ts >= bounds[k]) addTo(accs[k], r, e, wh, ml);
 
     const dk = dayKey(r.ts);
     const d = dailyAll.get(dk) || point(dk, dk);
     d.requests += r.requests || 1;
     d.tokens += tokens;
     d.wh += wh;
+    d.ml += ml;
     dailyAll.set(dk, d);
 
     if (r.ts >= today0) {
@@ -140,6 +148,7 @@ function buildSnapshot(records, sources, cfg, now = Date.now()) {
       p.requests += r.requests || 1;
       p.tokens += tokens;
       p.wh += wh;
+      p.ml += ml;
     }
   }
 
@@ -164,7 +173,6 @@ function buildSnapshot(records, sources, cfg, now = Date.now()) {
 
   for (const arr of [daily, hourly]) {
     for (const p of arr) {
-      p.ml = p.wh * cfg.waterLPerKWh;
       p.g = (p.wh / 1000) * cfg.co2gPerKWh;
     }
   }

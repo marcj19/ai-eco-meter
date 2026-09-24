@@ -8,9 +8,15 @@ const { EditorPets } = require('./src/editorPets');
 const MANUAL_KEY = 'aiEcoMeter.manualEntries';
 
 /** Presets para registrar uso de ferramentas sem log local. */
+// Valores por pergunta divulgados pelas próprias empresas (média/mediana de um prompt de texto).
+const OFFICIAL = {
+  ChatGPT: { wh: 0.34, ml: 0.32, ref: 'OpenAI, 2025' },
+  Gemini: { wh: 0.24, ml: 0.26, ref: 'Google, 2025' },
+};
+
 const PRESETS = [
-  { label: '$(comment) Pergunta rápida', detail: '~200 tokens de entrada, ~400 de resposta', inTok: 200, outTok: 400 },
-  { label: '$(code) Resposta longa / geração de código', detail: '~1.500 de entrada, ~1.500 de resposta', inTok: 1500, outTok: 1500 },
+  { label: '$(comment) Pergunta rápida', detail: '~200 tokens de entrada, ~400 de resposta', inTok: 200, outTok: 400, perPrompt: true },
+  { label: '$(code) Resposta longa / geração de código', detail: '~1.500 de entrada, ~1.500 de resposta', inTok: 1500, outTok: 1500, perPrompt: true },
   { label: '$(file-text) Análise de documento/arquivo grande', detail: '~20.000 de entrada, ~1.500 de resposta', inTok: 20000, outTok: 1500 },
   { label: '$(search) Pesquisa profunda / agente', detail: '~150.000 de entrada, ~8.000 de resposta', inTok: 150000, outTok: 8000 },
   { label: '$(file-media) Geração de imagem', detail: '≈ 3 Wh por imagem (estimativa)', whFixed: 3 },
@@ -34,8 +40,12 @@ function readCfg() {
   return {
     claude: c.get('sources.claudeCode', true),
     codex: c.get('sources.codex', true),
+    gemini: c.get('sources.geminiCli', true),
+    antigravity: c.get('sources.antigravity', true),
     claudePath: c.get('paths.claudeCode', ''),
     codexPath: c.get('paths.codex', ''),
+    geminiPath: c.get('paths.gemini', ''),
+    antigravityPath: c.get('paths.antigravity', ''),
     dailyBudgetWh: c.get('dailyEnergyBudgetWh', 1000),
     whPer1kOutput: c.get('coefficients.whPer1kOutputTokens', 1),
     whPer1kInput: c.get('coefficients.whPer1kInputTokens', 0.1),
@@ -47,7 +57,7 @@ function readCfg() {
     refreshSeconds: Math.max(10, c.get('refreshIntervalSeconds', 60)),
     statusBar: c.get('showStatusBar', true),
     pets: { enabled: c.get('pets.enabled', true), list: c.get('pets.list', ['gato', 'capivara', 'pato']) },
-    petsInEditor: c.get('pets.inEditor', true),
+    petsInEditor: c.get('pets.inEditor', false),
   };
 }
 
@@ -180,10 +190,15 @@ function attach(webview, mode, disposables) {
   );
 }
 
-class SidebarProvider {
+class ViewProvider {
+  /** @param {'sidebar'|'yard'} mode */
+  constructor(mode) {
+    this.mode = mode;
+  }
+
   resolveWebviewView(view) {
     const disposables = [];
-    attach(view.webview, 'sidebar', disposables);
+    attach(view.webview, this.mode, disposables);
     view.onDidDispose(() => {
       webviews.delete(view.webview);
       disposables.forEach((d) => d.dispose());
@@ -253,9 +268,17 @@ async function logManual() {
     requests: count,
   };
   if (preset.whFixed != null) entry.whFixed = preset.whFixed * count;
+  const official = preset.perPrompt && OFFICIAL[tool];
+  if (official) {
+    entry.whFixed = official.wh * count;
+    entry.mlFixed = official.ml * count;
+    entry.official = official.ref;
+  }
   await ctx.globalState.update(MANUAL_KEY, [...manualEntries(), entry]);
   await refresh();
-  vscode.window.showInformationMessage(`Registrado: ${count}× ${tool}. Obrigado por acompanhar sua pegada!`);
+  vscode.window.showInformationMessage(
+    `Registrado: ${count}× ${tool}` + (official ? ` (valor oficial: ${official.wh} Wh por pergunta, ${official.ref}).` : '.') + ' Obrigado por acompanhar sua pegada!',
+  );
 }
 
 async function clearManual() {
@@ -291,9 +314,11 @@ function activate(context) {
   context.subscriptions.push(
     statusItem,
     editorPets,
-    vscode.window.registerWebviewViewProvider('aiEcoMeter.dashboard', new SidebarProvider(), {
+    vscode.window.registerWebviewViewProvider('aiEcoMeter.dashboard', new ViewProvider('sidebar'), {
       webviewOptions: { retainContextWhenHidden: true },
     }),
+    vscode.window.registerWebviewViewProvider('aiEcoMeter.yardPanel', new ViewProvider('yard')),
+    vscode.window.registerWebviewViewProvider('aiEcoMeter.yardExplorer', new ViewProvider('yard')),
     vscode.commands.registerCommand('aiEcoMeter.openPanel', openPanel),
     vscode.commands.registerCommand('aiEcoMeter.refresh', refresh),
     vscode.commands.registerCommand('aiEcoMeter.logManual', logManual),
@@ -303,7 +328,7 @@ function activate(context) {
       return c.update('pets.enabled', !c.get('pets.enabled', true), vscode.ConfigurationTarget.Global);
     }),
     vscode.commands.registerCommand('aiEcoMeter.openSettings', () =>
-      vscode.commands.executeCommand('workbench.action.openSettings', '@ext:paulojunior.ai-eco-meter'),
+      vscode.commands.executeCommand('workbench.action.openSettings', '@ext:pmxtecnologia.ai-eco-meter'),
     ),
     vscode.workspace.onDidChangeConfiguration((e) => {
       if (e.affectsConfiguration('aiEcoMeter')) {

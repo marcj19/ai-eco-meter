@@ -11,6 +11,24 @@ const os = require('os');
 const CHUNK = 8 * 1024 * 1024;
 const EMPTY = Buffer.alloc(0);
 
+async function listFiles(dir, depth, exts, out = []) {
+  let entries;
+  try {
+    entries = await fsp.readdir(dir, { withFileTypes: true });
+  } catch {
+    return out;
+  }
+  for (const e of entries) {
+    const p = path.join(dir, e.name);
+    if (e.isDirectory()) {
+      if (depth > 0) await listFiles(p, depth - 1, exts, out);
+    } else if (e.isFile() && exts.some((x) => e.name.endsWith(x))) {
+      out.push(p);
+    }
+  }
+  return out;
+}
+
 async function listJsonl(dir, depth = 5, out = []) {
   let entries;
   try {
@@ -148,12 +166,101 @@ function parseCodexLine(line, st) {
   });
 }
 
+// ---------------------------------------------------------------- Gemini CLI
+
+function geminiRecord(o) {
+  if (!o || o.type !== 'gemini' || !o.tokens || !o.id) return null;
+  const t = o.tokens;
+  const cached = t.cached || 0;
+  return {
+    ts: Date.parse(o.timestamp) || 0,
+    source: 'gemini',
+    model: o.model || 'gemini',
+    inTok: Math.max(0, (t.input || 0) - cached), // `input` já inclui o que veio do cache
+    outTok: (t.output || 0) + (t.thoughts || 0), // raciocínio também é texto gerado
+    crTok: cached,
+    cwTok: 0,
+    requests: 1,
+  };
+}
+
+function parseGeminiLine(line, st) {
+  if (line.indexOf('"tokens"') === -1) return;
+  let o;
+  try {
+    o = JSON.parse(line);
+  } catch {
+    return;
+  }
+  const rec = geminiRecord(o);
+  // a mesma resposta pode ser regravada (ex.: quando ganha toolCalls); vale a última
+  if (rec) st.byId.set(o.id, rec);
+}
+
+// ---------------------------------------------------------------- Antigravity
+
+// As conversas do Antigravity são gravadas criptografadas, então os tokens reais não
+// podem ser lidos. Estimativa: o tamanho da conversa (~4 bytes por token), com ~20% de texto
+// gerado pelo modelo e o resto entrada (arquivos, resultados de ferramentas). Provavelmente
+// fica abaixo do real, porque o agente reenvia o contexto a cada passo.
+const AG_BYTES_PER_TOKEN = 4;
+const AG_OUTPUT_SHARE = 0.2;
+
+async function antigravityConversation(file, base, prev) {
+  const stat = await fsp.stat(file);
+  if (prev && prev.size === stat.size && prev.mtimeMs === stat.mtimeMs) return prev;
+  const id = path.basename(file, '.pb');
+  // Data da conversa: arquivo mais recente em brain/<id> (artefatos do agente) >
+  // última visualização nas anotações > data do próprio .pb (pode ser a de uma restauração).
+  let ts = 0;
+  for (const f of await listFiles(path.join(base, 'brain', id), 2, [''])) {
+    try {
+      ts = Math.max(ts, (await fsp.stat(f)).mtimeMs);
+    } catch {
+      // ignora
+    }
+  }
+  if (!ts) {
+    try {
+      const ann = await fsp.readFile(path.join(base, 'annotations', id + '.pbtxt'), 'utf8');
+      const m = /last_user_view_time:\{seconds:(\d+)/.exec(ann);
+      if (m) ts = Number(m[1]) * 1000;
+    } catch {
+      // sem anotação
+    }
+  }
+  if (!ts) ts = stat.mtimeMs;
+  const tokens = Math.round(stat.size / AG_BYTES_PER_TOKEN);
+  return {
+    size: stat.size,
+    mtimeMs: stat.mtimeMs,
+    rec: {
+      ts,
+      source: 'antigravity',
+      model: 'Antigravity (estimado)',
+      inTok: tokens - Math.round(tokens * AG_OUTPUT_SHARE),
+      outTok: Math.round(tokens * AG_OUTPUT_SHARE),
+      crTok: 0,
+      cwTok: 0,
+      requests: 1,
+      estimated: true,
+    },
+  };
+}
+
 // ---------------------------------------------------------------- Coletor
 
 class Collector {
   constructor() {
     this.claudeFiles = new Map();
     this.codexFiles = new Map();
+    this.geminiFiles = new Map();
+    this.geminiJson = new Map();
+    this.agFiles = new Map();
+  }
+
+  static geminiHome() {
+    return process.env.GEMINI_CLI_HOME ? path.join(process.env.GEMINI_CLI_HOME, '.gemini') : path.join(os.homedir(), '.gemini');
   }
 
   static defaultClaudeDir() {
@@ -209,7 +316,65 @@ class Collector {
       sources.codex = { enabled: false };
     }
 
+    if (opts.gemini) {
+      const dir = opts.geminiPath || path.join(Collector.geminiHome(), 'tmp');
+      const all = await listFiles(dir, 3, ['.jsonl', '.json']);
+      const chats = all.filter((f) => path.basename(path.dirname(f)) === 'chats');
+      const jsonl = chats.filter((f) => f.endsWith('.jsonl'));
+      await this._sync(jsonl, this.geminiFiles, () => ({ byId: new Map() }), (line, st) => parseGeminiLine(line, st),
+        (st) => st.byId.clear());
+      await this._syncGeminiJson(chats.filter((f) => f.endsWith('.json')));
+      const merged = new Map();
+      for (const st of [...this.geminiFiles.values(), ...this.geminiJson.values()]) {
+        for (const [id, rec] of st.byId) merged.set(id, rec);
+      }
+      for (const r of merged.values()) records.push(r);
+      sources.gemini = { enabled: true, path: dir, files: chats.length, requests: merged.size };
+    } else {
+      sources.gemini = { enabled: false };
+    }
+
+    if (opts.antigravity) {
+      const base = opts.antigravityPath || path.join(Collector.geminiHome(), 'antigravity');
+      const files = (await listFiles(path.join(base, 'conversations'), 0, ['.pb']));
+      const alive = new Set(files);
+      for (const f of this.agFiles.keys()) if (!alive.has(f)) this.agFiles.delete(f);
+      for (const f of files) {
+        try {
+          this.agFiles.set(f, await antigravityConversation(f, base, this.agFiles.get(f)));
+        } catch {
+          // arquivo em uso: tenta na próxima rodada
+        }
+      }
+      for (const c of this.agFiles.values()) records.push(c.rec);
+      sources.antigravity = { enabled: true, path: base, files: files.length, requests: this.agFiles.size, estimated: true };
+    } else {
+      sources.antigravity = { enabled: false };
+    }
+
     return { records, sources };
+  }
+
+  /** Versões antigas do Gemini CLI salvam a sessão inteira num .json reescrito a cada mensagem. */
+  async _syncGeminiJson(files) {
+    const alive = new Set(files);
+    for (const f of this.geminiJson.keys()) if (!alive.has(f)) this.geminiJson.delete(f);
+    for (const f of files) {
+      try {
+        const stat = await fsp.stat(f);
+        const prev = this.geminiJson.get(f);
+        if (prev && prev.size === stat.size && prev.mtimeMs === stat.mtimeMs) continue;
+        const data = JSON.parse(await fsp.readFile(f, 'utf8'));
+        const byId = new Map();
+        for (const m of (data && data.messages) || []) {
+          const rec = geminiRecord(m);
+          if (rec) byId.set(m.id, rec);
+        }
+        this.geminiJson.set(f, { size: stat.size, mtimeMs: stat.mtimeMs, byId });
+      } catch {
+        // arquivo sendo gravado: tenta de novo depois
+      }
+    }
   }
 
   async _sync(files, map, init, parse, reset) {

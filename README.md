@@ -7,7 +7,8 @@ Um planetinha mascote reage ao seu consumo do dia: fica **radiante** quando o us
 ## O que tem
 
 - **Bichinhos em pixel art** passeando no rodapé: gato, capivara (com laranjinha na cabeça), pato, cachorro, tartaruga e caranguejo. Eles andam, sentam e cochilam. Clique num deles para ele pular e comentar seu consumo do dia. Em dia quente, suam e andam mais devagar. No painel completo eles ficam maiores.
-- **Bichinhos no editor**: versões pequenas passeiam logo depois do código da última linha visível de qualquer arquivo, sem cobrir o texto. A capivara fica só relaxando. Desligue com `aiEcoMeter.pets.inEditor`.
+- **Aba e seção "Bichinhos"**: os bichinhos também moram numa aba no painel de baixo (junto do Terminal) e numa seção no fim do Explorer. Deixe a aba bem fininha e eles ficam passeando no cantinho enquanto você trabalha. Para esconder, clique com o botão direito no título e escolha *Ocultar*.
+- **Bichinhos dentro do editor** (experimental, desligado): `aiEcoMeter.pets.inEditor` coloca versões pequenas depois do código da última linha visível. Como a API do VS Code não permite fixá-los na borda da janela, eles acompanham a rolagem.
 - **Planeta mascote animado**: pisca, flutua e muda de humor (radiante → tranquila → preocupada → com calor). As turbinas eólicas giram mais rápido quando o consumo está baixo. Clique no planeta para ouvir outra frase.
 - **Bateria e copo d'água animados**: se enchem conforme a energia e a água gastas, em relação à sua meta.
 - **Métricas**: tokens (entrada/saída/cache), requisições, média de tokens por requisição e por dia, CO₂ e horário de pico.
@@ -21,11 +22,13 @@ Um planetinha mascote reage ao seu consumo do dia: fica **radiante** quando o us
 
 ## De onde vêm os dados
 
-| Fonte | Como |
-|---|---|
-| **Claude Code** | Lido automaticamente de `~/.claude/projects/**/*.jsonl` (tokens reais de cada requisição) |
-| **OpenAI Codex CLI** | Lido automaticamente de `~/.codex/sessions/**/*.jsonl` |
-| **ChatGPT, Copilot, Gemini, Claude.ai…** | Registro manual rápido: botão **＋** no painel ou comando *AI Eco Meter: Registrar uso manual* |
+| Fonte | Como | Precisão |
+|---|---|---|
+| **Claude Code** | `~/.claude/projects/**/*.jsonl` | Tokens reais de cada requisição |
+| **OpenAI Codex CLI** | `~/.codex/sessions/**/*.jsonl` | Tokens reais |
+| **Gemini CLI** | `~/.gemini/tmp/*/chats/*.jsonl` | Tokens reais (inclui raciocínio) |
+| **Antigravity** | `~/.gemini/antigravity/conversations` | **Estimativa**: as conversas são criptografadas, então usamos o tamanho de cada uma (~4 bytes por token, ~20% de texto gerado) |
+| **ChatGPT, Gemini, Copilot, Claude.ai…** | Registro manual rápido: botão **＋** no painel ou comando *AI Eco Meter: Registrar uso manual* | ChatGPT e Gemini usam os valores **oficiais** por pergunta (OpenAI: 0,34 Wh e 0,32 mL; Google: 0,24 Wh e 0,26 mL) |
 
 Nada sai do seu computador. A leitura é incremental: só as linhas novas são processadas a cada atualização.
 
@@ -60,18 +63,18 @@ Todos os coeficientes são ajustáveis em **Configurações → AI Eco Meter**.
 | `aiEcoMeter.modelMultipliers` | ver acima | Fator por família de modelo |
 | `aiEcoMeter.waterLitersPerKWh` | `1.8` | Água por kWh |
 | `aiEcoMeter.gridCo2GramsPerKWh` | `400` | Intensidade de carbono da rede |
-| `aiEcoMeter.sources.claudeCode` / `.codex` | `true` | Ativar/desativar fontes |
-| `aiEcoMeter.paths.claudeCode` / `.codex` | vazio | Pastas alternativas dos logs |
+| `aiEcoMeter.sources.claudeCode` / `.codex` / `.geminiCli` / `.antigravity` | `true` | Ativar/desativar fontes |
+| `aiEcoMeter.paths.claudeCode` / `.codex` / `.gemini` / `.antigravity` | vazio | Pastas alternativas dos logs |
 | `aiEcoMeter.refreshIntervalSeconds` | `60` | Intervalo de atualização |
 | `aiEcoMeter.showStatusBar` | `true` | Mostrar na barra de status |
 | `aiEcoMeter.pets.enabled` | `true` | Mostrar os bichinhos |
-| `aiEcoMeter.pets.inEditor` | `true` | Bichinhos passeando no editor |
+| `aiEcoMeter.pets.inEditor` | `false` | Experimental: bichinhos dentro do editor |
 | `aiEcoMeter.pets.list` | `["gato","capivara","pato"]` | Quais bichinhos (até 6): `gato`, `cachorro`, `pato`, `capivara`, `tartaruga`, `caranguejo` |
 
 ## Instalar
 
 ```bash
-code --install-extension ai-eco-meter-0.3.0.vsix
+code --install-extension ai-eco-meter-0.5.0.vsix
 ```
 
 Ou, para desenvolver: abra esta pasta no VS Code e aperte **F5** (não precisa de `npm install`, é JavaScript puro, sem dependências).
