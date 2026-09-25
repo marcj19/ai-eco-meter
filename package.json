@@ -2,7 +2,7 @@
   "name": "ai-eco-meter",
   "displayName": "AI Eco Meter — Pegada da IA",
   "description": "Veja, de um jeito divertido e consciente, quanta energia, água e CO₂ o seu uso de IA consome (Claude Code, Codex, Gemini CLI, Antigravity e mais), com tokens, médias e bichinhos em pixel art.",
-  "version": "0.6.1",
+  "version": "0.7.1",
   "publisher": "pmxtecnologia",
   "license": "MIT",
   "repository": {

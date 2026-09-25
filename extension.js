@@ -16,6 +16,7 @@ const VERSION_KEY = 'aiEcoMeter.lastVersion';
  * pequenas) atualizam em silêncio. Se a pessoa pular versões, vale o destaque mais recente.
  */
 const WHATS_NEW = {
+  '0.7.0': 'Novo objetivo no Quintal do planeta: restaure os biomas brasileiros (Cerrado, Caatinga, Pantanal, Mata Atlântica e Amazônia) e ganhe tamanduá, tatu-bola, arara, mico-leão e onça. E agora tem missões do dia!',
   '0.6.0': 'Agora os bichinhos farmam sozinhos! Abra a aba Bichinhos e conheça o Quintal do planeta: eles cultivam, colhem sementes e você compra melhorias, árvores e novos bichinhos.',
 };
 
@@ -327,6 +328,12 @@ function attach(webview, mode, disposables) {
           break;
         case 'game:buy':
           gameAction({ type: 'buy', id: String(msg.id) });
+          break;
+        case 'game:claim':
+          gameAction({ type: 'claim', index: Number(msg.index) });
+          break;
+        case 'game:pet':
+          gameAction({ type: 'pet' });
           break;
         case 'refresh':
           refresh();

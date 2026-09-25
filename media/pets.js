@@ -107,7 +107,10 @@
     p.bubble.style.left = left - p.x + 'px';
   }
 
+  let onPoke = null;
+
   function poke(p) {
+    if (onPoke) onPoke(p.id);
     p.state = 'idle';
     p.t = 3500;
     p.body.classList.remove('hop');
@@ -222,7 +225,9 @@
     update(opts) {
       mood = opts.mood || 'calm';
       facts = opts.facts || [];
-      const ids = (opts.list || []).filter((id) => PETS[id]).slice(0, 8);
+      // em quintais estreitos (ex.: Explorer), mostra só os bichinhos que cabem
+      const room = Math.max(3, Math.floor((window.innerWidth || 600) / (W * SCALE + 14)));
+      const ids = (opts.list || []).filter((id) => PETS[id]).slice(0, Math.min(12, room));
       if (!opts.enabled || !ids.length) {
         if (yard) {
           yard.remove();
@@ -271,6 +276,9 @@
     },
     onArrive(fn) {
       onArrive = fn;
+    },
+    onPoke(fn) {
+      onPoke = fn;
     },
   };
 })();

@@ -116,6 +116,8 @@ class GameHost {
   apply(a) {
     if (a.type === 'harvest') return this.game.harvest(Number(a.plot), !!a.manual) > 0;
     if (a.type === 'buy') return this.game.buy(String(a.id));
+    if (a.type === 'claim') return this.game.claim(Number(a.index));
+    if (a.type === 'pet') return this.game.pet();
     return false;
   }
 

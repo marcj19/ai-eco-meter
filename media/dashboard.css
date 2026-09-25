@@ -613,16 +613,16 @@ body[data-mode='yard'] .yard { top: 0; height: auto; background: none; }
   max-width: 90%; text-align: center;
 }
 .game-toast.show { opacity: 1; transform: translate(-50%, 0); }
-.game-shop {
+.game-menu {
   position: absolute; inset: 0; z-index: 7; pointer-events: auto;
   background: var(--vscode-panel-background, var(--bg, #181818));
   padding: 8px 10px; display: flex; flex-direction: column; gap: 8px; overflow: hidden;
 }
-.game-shop[hidden] { display: none; }
+.game-menu[hidden] { display: none; }
 .shop-head { display: flex; align-items: center; gap: 10px; font-size: 12.5px; }
 .shop-head span { display: inline-flex; align-items: center; gap: 4px; color: var(--muted); }
 .shop-head .hud-btn { margin-left: auto; }
-.shop-row { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; align-items: flex-start; }
+.shop-row, .menu-row { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; align-items: flex-start; }
 .shop-card {
   flex: 0 0 215px; display: flex; flex-direction: column; gap: 3px;
   background: var(--card); border: 1px solid var(--border); border-radius: 6px; padding: 5px 8px;
@@ -643,3 +643,54 @@ body[data-mode='yard'] .yard { top: 0; height: auto; background: none; }
 @keyframes ripeBob { 50% { transform: translateY(-2px); } }
 @keyframes floatUp { from { opacity: 1; transform: translate(-50%, 0); } to { opacity: 0; transform: translate(-50%, -26px); } }
 @keyframes shopPulse { 50% { transform: scale(1.08); } }
+
+/* ---- jogo: menu com abas, missões, biomas */
+.menu-head { display: flex; align-items: center; gap: 10px; font-size: 12.5px; }
+.menu-tabs { display: flex; gap: 2px; background: var(--card); border: 1px solid var(--border); border-radius: 6px; padding: 2px; }
+.menu-tabs button { border: 0; background: transparent; color: var(--muted); font: inherit; font-size: 11.5px; font-weight: 600; padding: 3px 10px; border-radius: 4px; cursor: pointer; }
+.menu-tabs button.active { background: var(--card-hi); color: var(--fg); }
+.menu-seeds { display: inline-flex; align-items: center; gap: 4px; color: var(--muted); margin-left: auto; }
+.menu-seeds svg { display: block; }
+.menu-head .hud-btn { margin-left: 0; }
+.hud-btn { position: relative; }
+.menu-badge {
+  position: absolute; top: -7px; right: -8px; min-width: 16px; height: 16px; padding: 0 4px;
+  background: #ff5c7a; color: #fff; border-radius: 99px; font-size: 10px; line-height: 16px; text-align: center;
+  box-shadow: 0 0 0 2px #1b1b2f;
+}
+.hud-biome { cursor: pointer; font: inherit; font-size: 12px; color: var(--fg); pointer-events: auto; }
+.hud-biome:hover { background: var(--card-hi); }
+.mini-bar { display: inline-block; width: 38px; height: 5px; border-radius: 99px; background: var(--border); overflow: hidden; margin-left: 2px; }
+.mini-bar i { display: block; height: 100%; background: var(--leaf); border-radius: inherit; transition: width .6s ease; }
+.mission-bar { height: 5px; border-radius: 99px; background: var(--border); overflow: hidden; }
+.mission-bar i { display: block; height: 100%; background: var(--leaf); border-radius: inherit; transition: width .5s ease; }
+.shop-card.mission { flex-basis: 250px; }
+.shop-card.mission.eco { border-color: color-mix(in srgb, var(--leaf) 45%, transparent); }
+.shop-card.claimed { opacity: .55; }
+.eco-tag { font-size: 9.5px; text-transform: uppercase; letter-spacing: .05em; color: #10141a; background: #7ee2ae; padding: 0 5px; border-radius: 3px; margin-right: 2px; }
+.shop-card.chest { flex-basis: 170px; flex-direction: row; align-items: center; gap: 8px; }
+.shop-card.chest .sc-desc { white-space: normal; }
+.shop-card.chest.opened .chest-icon { filter: grayscale(.2) brightness(1.2); }
+.chest-icon svg { display: block; }
+.shop-card.biome { flex-basis: 175px; position: relative; }
+.shop-card.biome.locked { opacity: .55; }
+.shop-card.biome.locked .biome-pet { filter: grayscale(1) brightness(.7); }
+.shop-card.biome.current { border-color: #ffd84d; }
+.shop-card.biome.done { border-color: color-mix(in srgb, var(--leaf) 60%, transparent); }
+.biome-pet { position: absolute; right: 6px; top: 4px; line-height: 0; opacity: .9; }
+.shop-card.biome .sc-title { padding-right: 36px; }
+.shop-card.biome .sc-title small { display: block; font-weight: 400; color: var(--muted); }
+.shop-card.biome-info { flex-basis: 230px; }
+.shop-card.biome-info .sc-desc { white-space: normal; }
+.game-toast.big { font-size: 12.5px; background: #fff6c8; }
+.game-toast svg { display: inline-block; vertical-align: middle; }
+.leaf { position: absolute; top: -8px; width: 6px; height: 6px; z-index: 6; pointer-events: none; animation: leafDrop 2.6s ease-in forwards; opacity: 0; }
+@keyframes leafDrop { 0% { opacity: 1; transform: translate(0, 0) rotate(0); } 100% { opacity: 0; transform: translate(var(--dx), 110px) rotate(260deg); } }
+
+/* chão de cada bioma */
+.yard[data-biome]::after { transition: background .6s; }
+.yard[data-biome='cerrado']::after { background: repeating-linear-gradient(90deg, #c9b458 0 6px, #a8963f 6px 9px, #c9b458 9px 15px); }
+.yard[data-biome='caatinga']::after { background: repeating-linear-gradient(90deg, #c9a36b 0 6px, #a8834e 6px 9px, #c9a36b 9px 15px); }
+.yard[data-biome='pantanal']::after { background: repeating-linear-gradient(90deg, #5cb85c 0 8px, #4aa3df 8px 14px, #5cb85c 14px 26px); }
+.yard[data-biome='mata']::after { background: repeating-linear-gradient(90deg, #3fbf7f 0 6px, #2a8a5a 6px 9px, #3fbf7f 9px 15px); }
+.yard[data-biome='amazonia']::after { background: repeating-linear-gradient(90deg, #2e8b57 0 6px, #1f6b41 6px 9px, #2e8b57 9px 15px); }
