@@ -1,3 +1,5 @@
 .vscode/**
+.gitignore
 *.vsix
-build-vsix.py
+*.bak
+.preview/**

@@ -79,4 +79,4 @@ code --install-extension ai-eco-meter-0.5.0.vsix
 
 Ou, para desenvolver: abra esta pasta no VS Code e aperte **F5** (não precisa de `npm install`, é JavaScript puro, sem dependências).
 
-Para gerar o `.vsix` sem instalar nada: `python build-vsix.py`. Com a ferramenta oficial: `npx @vscode/vsce package`.
+Para gerar o `.vsix` (use sempre a ferramenta oficial para publicar nas lojas): `npx @vscode/vsce package --no-dependencies`.
