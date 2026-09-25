@@ -139,10 +139,40 @@
     }
   }
 
+  let onArrive = null;
+
+  /** Bichinho com tarefa (ex.: colher um canteiro): anda até o alvo, mais rápido. */
+  function updateTask(p, dt) {
+    const target = p.task.x - (W * SCALE) / 2;
+    const d = target - p.x;
+    p.dir = d < 0 ? -1 : 1;
+    const step = p.def.speed * 2.5 * (mood === 'hot' ? 0.65 : 1) * dt;
+    p.anim += dt;
+    if (Math.abs(d) <= step + 1) {
+      p.x = target;
+      const id = p.task.id;
+      p.task = null;
+      p.state = 'idle';
+      p.t = 1400;
+      p.body.classList.remove('hop');
+      void p.body.offsetWidth;
+      p.body.classList.add('hop');
+      if (onArrive) onArrive(id, p);
+    } else {
+      p.state = 'walk';
+      p.x += Math.sign(d) * step;
+    }
+  }
+
   function update(p, dt, width) {
     p.t -= dt;
     if (p.emoteT > 0 && (p.emoteT -= dt) <= 0 && p.state !== 'sleep') p.emote.className = 'pet-emote';
     if (p.bubbleT > 0 && (p.bubbleT -= dt) <= 0) p.bubble.classList.remove('show');
+    if (p.task) {
+      updateTask(p, dt);
+      draw(p);
+      return;
+    }
 
     if (p.state === 'walk') {
       const speed = p.def.speed * (mood === 'hot' ? 0.65 : 1);
@@ -192,7 +222,7 @@
     update(opts) {
       mood = opts.mood || 'calm';
       facts = opts.facts || [];
-      const ids = (opts.list || []).filter((id) => PETS[id]).slice(0, 6);
+      const ids = (opts.list || []).filter((id) => PETS[id]).slice(0, 8);
       if (!opts.enabled || !ids.length) {
         if (yard) {
           yard.remove();
@@ -219,5 +249,28 @@
     },
     /** Ícone em pixel art (usado pelas conquistas). */
     pixel: toSvg,
+    scale: SCALE,
+    /** Elemento do quintal (o jogo desenha canteiros e árvores dentro dele). */
+    yard: () => yard,
+    /** Pede que o bichinho livre mais próximo vá até `x` (centro do alvo). */
+    request(id, x) {
+      if (pets.some((p) => p.task && p.task.id === id)) return true;
+      let best = null;
+      for (const p of pets) {
+        if (p.task) continue;
+        const dist = Math.abs(p.x + (W * SCALE) / 2 - x) + (p.state === 'sleep' ? 400 : 0);
+        if (!best || dist < best.dist) best = { p, dist };
+      }
+      if (!best) return false;
+      if (best.p.state === 'sleep') best.p.emote.className = 'pet-emote';
+      best.p.task = { id, x };
+      return true;
+    },
+    cancel(id) {
+      for (const p of pets) if (p.task && p.task.id === id) p.task = null;
+    },
+    onArrive(fn) {
+      onArrive = fn;
+    },
   };
 })();

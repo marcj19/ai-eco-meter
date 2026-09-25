@@ -568,3 +568,78 @@ body[data-mode='panel'].has-pets .app { padding-bottom: 108px; }
 body[data-mode='yard'], body[data-mode='yard'] .app { background: transparent; padding: 0; }
 body[data-mode='yard'] .loading { display: none; }
 body[data-mode='yard'] .yard { top: 0; height: auto; background: none; }
+
+/* ---------------------------------------------------------------- Quintal do planeta (jogo) */
+.game { position: absolute; inset: 0; pointer-events: none; }
+.game-trees span { position: absolute; bottom: 9px; line-height: 0; z-index: 1; opacity: .92; transform-origin: bottom center; animation: sway 4s ease-in-out infinite alternate; animation-delay: var(--d); }
+.game-trees span svg { transform: rotate(0); }
+.plot { position: absolute; bottom: 8px; line-height: 0; z-index: 2; pointer-events: auto; transition: transform .2s; }
+.plot.ripe { cursor: pointer; filter: drop-shadow(0 0 4px rgba(255, 216, 77, .7)); animation: ripeBob 1.2s ease-in-out infinite; }
+.plot.ripe:hover { transform: scale(1.12); }
+.pet { z-index: 3; }
+.game-hud {
+  position: absolute; top: 6px; left: 8px; right: 8px; z-index: 4;
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  font-size: 12px; pointer-events: none;
+}
+.game-hud .spacer { flex: 1; }
+.hud-item { display: inline-flex; align-items: center; gap: 5px; background: var(--card); border: 1px solid var(--border); padding: 2px 8px 2px 5px; border-radius: 6px; }
+.hud-item svg { display: block; }
+.hud-item small { color: var(--muted); font-size: 10.5px; }
+.hud-mood { font-size: 11px; padding: 2px 8px; border-radius: 99px; color: #10141a; font-weight: 600; pointer-events: auto; cursor: help; }
+.hud-mood.good { background: #7ee2ae; }
+.hud-mood.mid { background: #ffd08a; }
+.hud-mood.bad { background: #ff9d85; }
+.hud-btn {
+  pointer-events: auto; cursor: pointer;
+  font: inherit; font-size: 11.5px; font-weight: 700;
+  color: #1b1b2f; background: #ffd84d;
+  border: 0; padding: 3px 12px; border-radius: 4px;
+  box-shadow: 0 -2px 0 0 #1b1b2f inset, 0 0 0 2px #1b1b2f;
+}
+.hud-btn:hover { filter: brightness(1.08); }
+.hud-btn.pulse { animation: shopPulse 1.6s ease-in-out infinite; }
+.float {
+  position: absolute; bottom: 44px; z-index: 5; transform: translateX(-50%);
+  font-weight: 800; font-size: 13px; color: #7ee2ae; pointer-events: none;
+  text-shadow: 0 1px 0 #1b1b2f, 1px 0 0 #1b1b2f, -1px 0 0 #1b1b2f, 0 -1px 0 #1b1b2f;
+  animation: floatUp 1.4s ease-out forwards;
+}
+.float.manual { color: #ffd84d; font-size: 15px; }
+.game-toast {
+  position: absolute; top: 34px; left: 50%; z-index: 6; transform: translate(-50%, -6px);
+  background: #fffdf5; color: #1b1b2f; font-size: 12px; padding: 5px 10px; border-radius: 4px;
+  box-shadow: 0 0 0 2px #1b1b2f; opacity: 0; transition: opacity .3s, transform .3s; pointer-events: none;
+  max-width: 90%; text-align: center;
+}
+.game-toast.show { opacity: 1; transform: translate(-50%, 0); }
+.game-shop {
+  position: absolute; inset: 0; z-index: 7; pointer-events: auto;
+  background: var(--vscode-panel-background, var(--bg, #181818));
+  padding: 8px 10px; display: flex; flex-direction: column; gap: 8px; overflow: hidden;
+}
+.game-shop[hidden] { display: none; }
+.shop-head { display: flex; align-items: center; gap: 10px; font-size: 12.5px; }
+.shop-head span { display: inline-flex; align-items: center; gap: 4px; color: var(--muted); }
+.shop-head .hud-btn { margin-left: auto; }
+.shop-row { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; align-items: flex-start; }
+.shop-card {
+  flex: 0 0 215px; display: flex; flex-direction: column; gap: 3px;
+  background: var(--card); border: 1px solid var(--border); border-radius: 6px; padding: 5px 8px;
+}
+.shop-card.can { border-color: color-mix(in srgb, var(--leaf) 60%, transparent); }
+.sc-title { font-weight: 700; font-size: 12px; }
+.sc-title small { color: var(--muted); font-weight: 400; margin-left: 4px; }
+.sc-top { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.sc-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sc-desc { font-size: 11px; color: var(--muted); line-height: 1.35; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.buy {
+  flex: none; display: inline-flex; align-items: center; gap: 4px;
+  font: inherit; font-size: 11.5px; font-weight: 700; cursor: pointer;
+  color: #1b1b2f; background: #7ee2ae; border: 0; border-radius: 4px; padding: 3px 9px;
+}
+.buy:disabled { background: var(--card-hi); color: var(--muted); cursor: not-allowed; }
+.buy svg { display: block; }
+@keyframes ripeBob { 50% { transform: translateY(-2px); } }
+@keyframes floatUp { from { opacity: 1; transform: translate(-50%, 0); } to { opacity: 0; transform: translate(-50%, -26px); } }
+@keyframes shopPulse { 50% { transform: scale(1.08); } }

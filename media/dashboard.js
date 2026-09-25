@@ -7,6 +7,7 @@
     typeof acquireVsCodeApi === 'function'
       ? acquireVsCodeApi()
       : { postMessage() {}, getState() { return null; }, setState() {} };
+  /** @type {any} */ (window).__vscodeApi = vscode;
 
   const app = /** @type {HTMLElement} */ (document.getElementById('app'));
   const tipEl = /** @type {HTMLElement} */ (document.getElementById('tip'));
@@ -578,7 +579,11 @@
             !a.earned && a.progress > 0
               ? `<svg class="ring" viewBox="0 0 60 60"><circle cx="30" cy="30" r="28" stroke="var(--border)"/><circle cx="30" cy="30" r="28" stroke="var(--leaf)" stroke-dasharray="${a.progress * 176} 176" transform="rotate(-90 30 30)" stroke-linecap="round"/></svg>`
               : '';
-          const pct = a.earned ? 'Conquistada!' : `${Math.round(a.progress * 100)}% concluído`;
+          const pct = a.earned
+            ? a.earnedAt
+              ? `Conquistada em ${new Date(a.earnedAt).toLocaleDateString('pt-BR')}`
+              : 'Conquistada!'
+            : `${Math.round(a.progress * 100)}% concluído`;
           return `<div class="badge ${a.earned ? 'earned' : 'locked'}" data-tip="${esc(`<b>${a.title}</b><br>${a.desc}<br><i>${pct}</i>`)}"><div class="medal pixel">${ring}${badgeIcon(a.id)}</div><div class="b-title">${a.title}</div></div>`;
         })
         .join('')}</div>
@@ -720,8 +725,13 @@
       if (mood === 'hot') facts.push('Tá quente hoje, hein.', 'Bora dar uma pausa?');
       if (mood === 'radiant') facts.push('Dia leve. Gostei.');
     }
-    window.EcoPets.update({ enabled: petCfg.enabled, list: petCfg.list, mood, facts });
+    // na aba Bichinhos os bichinhos sempre aparecem, junto com os adotados no jogo
+    const extra = MODE === 'yard' && window.EcoGame ? window.EcoGame.extraPets() : [];
+    const list = [...new Set([...(petCfg.list || []), ...extra])];
+    window.EcoPets.update({ enabled: MODE === 'yard' || petCfg.enabled, list, mood, facts });
   }
+
+  window.EcoDashboard = { refreshPets: () => updatePets(state.snap) };
 
   function countUp() {
     const els = app.querySelectorAll('.count');

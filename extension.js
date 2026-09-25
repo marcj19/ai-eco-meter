@@ -4,8 +4,20 @@ const crypto = require('crypto');
 const { Collector } = require('./src/collector');
 const { buildSnapshot, DEFAULT_MULTIPLIERS } = require('./src/impact');
 const { EditorPets } = require('./src/editorPets');
+const { GameHost } = require('./src/gameHost');
 
 const MANUAL_KEY = 'aiEcoMeter.manualEntries';
+const ACHIEVEMENTS_KEY = 'aiEcoMeter.achievements';
+const GAME_KEY = 'aiEcoMeter.game'; // só para migrar o progresso da 0.6.0
+const VERSION_KEY = 'aiEcoMeter.lastVersion';
+
+/**
+ * Destaques mostrados uma única vez depois de atualizar. Versões sem entrada aqui (correções
+ * pequenas) atualizam em silêncio. Se a pessoa pular versões, vale o destaque mais recente.
+ */
+const WHATS_NEW = {
+  '0.6.0': 'Agora os bichinhos farmam sozinhos! Abra a aba Bichinhos e conheça o Quintal do planeta: eles cultivam, colhem sementes e você compra melhorias, árvores e novos bichinhos.',
+};
 
 /** Presets para registrar uso de ferramentas sem log local. */
 // Valores por pergunta divulgados pelas próprias empresas (média/mediana de um prompt de texto).
@@ -34,6 +46,11 @@ const webviews = new Set();
 let panel = null;
 let ctx;
 let editorPets;
+let game;
+let gameTimer;
+let lastGameView = null;
+let pendingOffline = 0;
+const yardViews = new Set();
 
 function readCfg() {
   const c = vscode.workspace.getConfiguration('aiEcoMeter');
@@ -58,6 +75,7 @@ function readCfg() {
     statusBar: c.get('showStatusBar', true),
     pets: { enabled: c.get('pets.enabled', true), list: c.get('pets.list', ['gato', 'capivara', 'pato']) },
     petsInEditor: c.get('pets.inEditor', false),
+    gameEnabled: c.get('game.enabled', true),
   };
 }
 
@@ -74,10 +92,13 @@ async function refresh() {
     for (const m of manual) records.push(m);
     sources.manual = { enabled: true, requests: manual.reduce((n, m) => n + (m.requests || 1), 0) };
     latest = buildSnapshot(records, sources, cfg);
+    await keepAchievements(latest.achievements);
     updateStatusBar(cfg);
     const pct = latest.ranges.today.wh / cfg.dailyBudgetWh;
     const mood = pct < 0.25 ? 'radiant' : pct < 0.6 ? 'calm' : pct < 1 ? 'worried' : 'hot';
     editorPets.update(cfg.pets, cfg.petsInEditor, mood);
+    game.setMood(mood);
+    game.setBasePets(cfg.pets.list);
     broadcast();
   })()
     .catch((err) => console.error('[AI Eco Meter]', err))
@@ -87,8 +108,131 @@ async function refresh() {
   return running;
 }
 
+/**
+ * Conquistas são permanentes: uma vez ganha, fica registrada (com a data), mesmo que a
+ * condição deixe de valer depois (ex.: "Semana verde" só olha os últimos 7 dias).
+ */
+async function keepAchievements(list) {
+  const saved = ctx.globalState.get(ACHIEVEMENTS_KEY, null);
+  const firstRun = saved === null;
+  const map = Object.assign({}, saved || {});
+  const fresh = [];
+  for (const a of list) {
+    if (a.earned && !map[a.id]) {
+      map[a.id] = Date.now();
+      fresh.push(a);
+    }
+    if (map[a.id]) {
+      a.earned = true;
+      a.progress = 1;
+      a.earnedAt = map[a.id];
+    }
+  }
+  if (fresh.length || firstRun) await ctx.globalState.update(ACHIEVEMENTS_KEY, map);
+  // na primeira execução, as conquistas do histórico entram em silêncio
+  if (!firstRun) {
+    for (const a of fresh) {
+      vscode.window
+        .showInformationMessage(`Conquista desbloqueada: ${a.title}. ${a.desc}.`, 'Ver conquistas')
+        .then((pick) => pick && openPanel());
+    }
+  }
+}
+
+// ------------------------------------------------------------------ novidades
+
+function compareVersions(a, b) {
+  const pa = String(a).split('.').map(Number);
+  const pb = String(b).split('.').map(Number);
+  for (let i = 0; i < 3; i++) if ((pa[i] || 0) !== (pb[i] || 0)) return (pa[i] || 0) - (pb[i] || 0);
+  return 0;
+}
+
+function showChangelog() {
+  const uri = vscode.Uri.joinPath(ctx.extensionUri, 'CHANGELOG.md');
+  return vscode.commands.executeCommand('markdown.showPreview', uri).then(undefined, () => vscode.window.showTextDocument(uri));
+}
+
+/**
+ * @param {boolean} existingUser havia dados de uma versão anterior (antes de gravarmos a versão)
+ */
+async function announceUpdate(existingUser) {
+  const current = ctx.extension.packageJSON.version;
+  // quem veio da 0.5.x não tem a versão gravada: trata como atualização, não como instalação nova
+  const previous = ctx.globalState.get(VERSION_KEY) || (existingUser ? '0.5.0' : undefined);
+  if (previous === current) return;
+  await ctx.globalState.update(VERSION_KEY, current);
+
+  if (!previous) {
+    const pick = await vscode.window.showInformationMessage(
+      'AI Eco Meter instalado! Acompanhe a energia e a água do seu uso de IA e conheça os bichinhos do quintal.',
+      'Abrir painel',
+      'Abrir quintal',
+    );
+    if (pick === 'Abrir painel') openPanel();
+    else if (pick === 'Abrir quintal') vscode.commands.executeCommand('aiEcoMeter.yardPanel.focus');
+    return;
+  }
+
+  // destaque mais recente entre as versões novas desde a última usada
+  const news = Object.keys(WHATS_NEW)
+    .filter((v) => compareVersions(v, previous) > 0 && compareVersions(v, current) <= 0)
+    .sort(compareVersions);
+  if (!news.length) return;
+  const pick = await vscode.window.showInformationMessage(
+    `AI Eco Meter atualizado para a ${current}. ${WHATS_NEW[news[news.length - 1]]}`,
+    'Ver novidades',
+    'Abrir quintal',
+  );
+  if (pick === 'Ver novidades') showChangelog();
+  else if (pick === 'Abrir quintal') vscode.commands.executeCommand('aiEcoMeter.yardPanel.focus');
+}
+
+// ------------------------------------------------------------------ jogo
+
+function sendGame(view) {
+  if (!readCfg().gameEnabled || !view) return;
+  if (view.offline) {
+    pendingOffline += view.offline;
+    view.offline = 0;
+  }
+  lastGameView = view;
+  if (!yardViews.size) return; // guarda o aviso de progresso offline até alguém abrir a aba
+  const msg = Object.assign({}, view, { offline: pendingOffline });
+  pendingOffline = 0;
+  for (const w of yardViews) {
+    Promise.resolve()
+      .then(() => w.postMessage({ type: 'game', game: msg }))
+      .catch(() => yardViews.delete(w));
+  }
+}
+
+function gameStep() {
+  if (!readCfg().gameEnabled) return;
+  try {
+    sendGame(game.tick());
+  } catch (err) {
+    console.error('[AI Eco Meter] jogo:', err);
+  }
+}
+
+function gameAction(action) {
+  // na janela dona a ação vale na hora; nas outras, é repassada e aparece no próximo segundo
+  if (game.action(action)) gameStep();
+}
+
+function startGame() {
+  game = new GameHost(ctx.globalStorageUri.fsPath, ctx.globalState.get(GAME_KEY, null));
+  gameTimer = setInterval(gameStep, 1000);
+}
+
 function broadcast() {
-  for (const w of webviews) w.postMessage({ type: 'snapshot', snapshot: latest });
+  for (const w of webviews) {
+    // uma webview pode ter sido fechada entre a coleta e o envio
+    Promise.resolve()
+      .then(() => w.postMessage({ type: 'snapshot', snapshot: latest }))
+      .catch(() => webviews.delete(w));
+  }
 }
 
 // ------------------------------------------------------------------ status bar
@@ -142,6 +286,7 @@ function getHtml(webview, mode) {
   const js = webview.asWebviewUri(vscode.Uri.joinPath(media, 'dashboard.js'));
   const petsJs = webview.asWebviewUri(vscode.Uri.joinPath(media, 'pets.js'));
   const spritesJs = webview.asWebviewUri(vscode.Uri.joinPath(media, 'sprites.js'));
+  const gameJs = webview.asWebviewUri(vscode.Uri.joinPath(media, 'game.js'));
   const nonce = crypto.randomBytes(16).toString('base64');
   return `<!DOCTYPE html>
 <html lang="pt-BR">
@@ -158,6 +303,7 @@ function getHtml(webview, mode) {
 <script nonce="${nonce}" src="${spritesJs}"></script>
 <script nonce="${nonce}" src="${petsJs}"></script>
 <script nonce="${nonce}" src="${js}"></script>
+<script nonce="${nonce}" src="${gameJs}"></script>
 </body>
 </html>`;
 }
@@ -166,12 +312,21 @@ function attach(webview, mode, disposables) {
   webview.options = { enableScripts: true, localResourceRoots: [vscode.Uri.joinPath(ctx.extensionUri, 'media')] };
   webview.html = getHtml(webview, mode);
   webviews.add(webview);
+  if (mode === 'yard') yardViews.add(webview);
   disposables.push(
+    { dispose: () => yardViews.delete(webview) },
     webview.onDidReceiveMessage((msg) => {
       switch (msg && msg.type) {
         case 'ready':
           if (latest) webview.postMessage({ type: 'snapshot', snapshot: latest });
           else refresh();
+          if (mode === 'yard' && lastGameView) sendGame(Object.assign({}, lastGameView, { events: [] }));
+          break;
+        case 'game:harvest':
+          gameAction({ type: 'harvest', plot: Number(msg.plot), manual: !!msg.manual });
+          break;
+        case 'game:buy':
+          gameAction({ type: 'buy', id: String(msg.id) });
           break;
         case 'refresh':
           refresh();
@@ -199,8 +354,10 @@ class ViewProvider {
   resolveWebviewView(view) {
     const disposables = [];
     attach(view.webview, this.mode, disposables);
+    // guarda a referência: depois do dispose, acessar `view.webview` lança "Webview is disposed"
+    const webview = view.webview;
     view.onDidDispose(() => {
-      webviews.delete(view.webview);
+      webviews.delete(webview);
       disposables.forEach((d) => d.dispose());
     });
   }
@@ -218,10 +375,12 @@ function openPanel() {
   panel.iconPath = vscode.Uri.joinPath(ctx.extensionUri, 'media', 'panel-icon.svg');
   const disposables = [];
   attach(panel.webview, 'panel', disposables);
-  panel.onDidDispose(() => {
-    webviews.delete(panel.webview);
+  const current = panel;
+  const webview = current.webview;
+  current.onDidDispose(() => {
+    webviews.delete(webview);
     disposables.forEach((d) => d.dispose());
-    panel = null;
+    if (panel === current) panel = null;
   });
 }
 
@@ -304,6 +463,11 @@ function activate(context) {
   ctx = context;
   collector = new Collector();
   editorPets = new EditorPets();
+  // verificado antes da primeira coleta, que já grava conquistas
+  const existingUser = [ACHIEVEMENTS_KEY, MANUAL_KEY, GAME_KEY].some((k) => context.globalState.get(k) !== undefined);
+  startGame();
+  // deixa a janela terminar de carregar antes de mostrar a notificação
+  setTimeout(() => announceUpdate(existingUser).catch(() => {}), 4000);
 
   statusItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 90);
   statusItem.command = 'aiEcoMeter.openPanel';
@@ -323,6 +487,7 @@ function activate(context) {
     vscode.commands.registerCommand('aiEcoMeter.refresh', refresh),
     vscode.commands.registerCommand('aiEcoMeter.logManual', logManual),
     vscode.commands.registerCommand('aiEcoMeter.clearManual', clearManual),
+    vscode.commands.registerCommand('aiEcoMeter.showChangelog', showChangelog),
     vscode.commands.registerCommand('aiEcoMeter.togglePets', () => {
       const c = vscode.workspace.getConfiguration('aiEcoMeter');
       return c.update('pets.enabled', !c.get('pets.enabled', true), vscode.ConfigurationTarget.Global);
@@ -343,6 +508,9 @@ function activate(context) {
   refresh();
 }
 
-function deactivate() {}
+function deactivate() {
+  if (gameTimer) clearInterval(gameTimer);
+  if (game) game.release();
+}
 
 module.exports = { activate, deactivate };

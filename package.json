@@ -2,7 +2,7 @@
   "name": "ai-eco-meter",
   "displayName": "AI Eco Meter — Pegada da IA",
   "description": "Veja, de um jeito divertido e consciente, quanta energia, água e CO₂ o seu uso de IA consome (Claude Code, Codex, Gemini CLI, Antigravity e mais), com tokens, médias e bichinhos em pixel art.",
-  "version": "0.5.0",
+  "version": "0.6.1",
   "publisher": "pmxtecnologia",
   "license": "MIT",
   "repository": {
@@ -116,6 +116,11 @@
       {
         "command": "aiEcoMeter.togglePets",
         "title": "Mostrar/esconder bichinhos",
+        "category": "AI Eco Meter"
+      },
+      {
+        "command": "aiEcoMeter.showChangelog",
+        "title": "Ver novidades",
         "category": "AI Eco Meter"
       }
     ],
@@ -274,6 +279,11 @@
           "type": "string",
           "default": "",
           "description": "Pasta alternativa dos dados do Antigravity. Vazio = ~/.gemini/antigravity."
+        },
+        "aiEcoMeter.game.enabled": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Ativar o **Quintal do planeta** na aba Bichinhos: os bichinhos cultivam canteiros e colhem sementes sozinhos. O ritmo acompanha o seu uso de IA do dia."
         }
       }
     }

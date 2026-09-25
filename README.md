@@ -9,6 +9,7 @@ Um planetinha mascote reage ao seu consumo do dia: fica **radiante** quando o us
 - **Bichinhos em pixel art** passeando no rodapé: gato, capivara (com laranjinha na cabeça), pato, cachorro, tartaruga e caranguejo. Eles andam, sentam e cochilam. Clique num deles para ele pular e comentar seu consumo do dia. Em dia quente, suam e andam mais devagar. No painel completo eles ficam maiores.
 - **Aba e seção "Bichinhos"**: os bichinhos também moram numa aba no painel de baixo (junto do Terminal) e numa seção no fim do Explorer. Deixe a aba bem fininha e eles ficam passeando no cantinho enquanto você trabalha. Para esconder, clique com o botão direito no título e escolha *Ocultar*.
 - **Bichinhos dentro do editor** (experimental, desligado): `aiEcoMeter.pets.inEditor` coloca versões pequenas depois do código da última linha visível. Como a API do VS Code não permite fixá-los na borda da janela, eles acompanham a rolagem.
+- **Quintal do planeta** (jogo idle na aba Bichinhos): os bichinhos cultivam canteiros e **colhem sementes sozinhos**. Com as sementes você compra canteiros, regador, adubo, chapéu de palha, **planta árvores** e **adota bichinhos novos**. O ritmo acompanha o seu uso de IA: dia leve rende até +50%, dia pesado deixa todo mundo com calor (−30%), sem nunca perder progresso. Clique numa planta madura para colher na hora (+25%). Quando você volta, recebe o que eles colheram enquanto o VS Code estava fechado.
 - **Planeta mascote animado**: pisca, flutua e muda de humor (radiante → tranquila → preocupada → com calor). As turbinas eólicas giram mais rápido quando o consumo está baixo. Clique no planeta para ouvir outra frase.
 - **Bateria e copo d'água animados**: se enchem conforme a energia e a água gastas, em relação à sua meta.
 - **Métricas**: tokens (entrada/saída/cache), requisições, média de tokens por requisição e por dia, CO₂ e horário de pico.
@@ -68,6 +69,7 @@ Todos os coeficientes são ajustáveis em **Configurações → AI Eco Meter**.
 | `aiEcoMeter.refreshIntervalSeconds` | `60` | Intervalo de atualização |
 | `aiEcoMeter.showStatusBar` | `true` | Mostrar na barra de status |
 | `aiEcoMeter.pets.enabled` | `true` | Mostrar os bichinhos |
+| `aiEcoMeter.game.enabled` | `true` | Jogo "Quintal do planeta" na aba Bichinhos |
 | `aiEcoMeter.pets.inEditor` | `false` | Experimental: bichinhos dentro do editor |
 | `aiEcoMeter.pets.list` | `["gato","capivara","pato"]` | Quais bichinhos (até 6): `gato`, `cachorro`, `pato`, `capivara`, `tartaruga`, `caranguejo` |
 
