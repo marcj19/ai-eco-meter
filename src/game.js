@@ -9,6 +9,8 @@
 //  - Missões do dia: 3 por dia, uma delas ligada ao uso consciente de IA.
 //  - Melhorias sem nível máximo, com preço crescente.
 
+const { create: createI18n } = require('../media/i18n');
+
 const GROW_SECONDS = 24; // tempo para uma planta amadurecer, sem bônus
 const AUTO_HARVEST_SECONDS = 12; // se nenhum bichinho chegar, a colheita acontece sozinha
 const OFFLINE_MAX_SECONDS = 8 * 3600;
@@ -20,26 +22,13 @@ const BIOME_BONUS = 0.3; // +30% nas colheitas por bioma restaurado
 const EXTRA_PETS = ['cachorro', 'tartaruga', 'caranguejo', 'gato', 'pato', 'capivara'];
 
 const BIOMES = [
+  // nomes exibidos vêm do i18n ("biome.<id>")
   { id: 'cerrado', name: 'Cerrado', need: 8, pet: 'tamandua' },
   { id: 'caatinga', name: 'Caatinga', need: 10, pet: 'tatu' },
   { id: 'pantanal', name: 'Pantanal', need: 13, pet: 'arara' },
   { id: 'mata', name: 'Mata Atlântica', need: 16, pet: 'mico' },
   { id: 'amazonia', name: 'Amazônia', need: 20, pet: 'onca' },
 ];
-
-const PET_NAMES = {
-  gato: 'Gato',
-  cachorro: 'Cachorro',
-  pato: 'Pato',
-  capivara: 'Capivara',
-  tartaruga: 'Tartaruga',
-  caranguejo: 'Caranguejo',
-  tamandua: 'Tamanduá-bandeira',
-  tatu: 'Tatu-bola',
-  arara: 'Arara-azul',
-  mico: 'Mico-leão-dourado',
-  onca: 'Onça-pintada',
-};
 
 /** Multiplicador de crescimento pelo humor do planeta (uso de IA do dia). */
 function moodSpeed(mood, hasHat) {
@@ -73,11 +62,12 @@ function seeded(str) {
   };
 }
 
-function compact(n) {
-  if (n >= 1e9) return (n / 1e9).toFixed(1).replace('.', ',') + ' bi';
-  if (n >= 1e6) return (n / 1e6).toFixed(1).replace('.', ',') + ' mi';
-  if (n >= 1e4) return Math.round(n / 1e3) + ' mil';
-  return String(Math.round(n));
+function compact(n, t) {
+  const loc = t.locale;
+  if (n >= 1e9) return (n / 1e9).toLocaleString(loc, { maximumFractionDigits: 1 }) + t('unit.billion');
+  if (n >= 1e6) return (n / 1e6).toLocaleString(loc, { maximumFractionDigits: 1 }) + t('unit.million');
+  if (n >= 1e4) return Math.round(n / 1e3).toLocaleString(loc) + t('unit.thousand');
+  return Math.round(n).toLocaleString(loc);
 }
 
 function newState(now) {
@@ -118,6 +108,7 @@ class Game {
     this.s = saved && (saved.v === 1 || saved.v === 2) ? migrate(saved) : newState(now);
     this.mood = 'calm';
     this.basePets = [];
+    this.t = createI18n('pt');
     this.events = []; // colheitas e conquistas desde o último envio (para animar)
     this.offlineGain = 0;
     this.applyOffline(now);
@@ -126,6 +117,11 @@ class Game {
 
   setMood(mood) {
     this.mood = mood || 'calm';
+  }
+
+  /** Idioma dos textos gerados aqui (missões, loja, biomas). */
+  setLang(lang) {
+    if (lang !== this.t.lang) this.t = createI18n(lang);
   }
 
   /** Bichinhos que já estão no quintal pela configuração (não aparecem para adoção). */
@@ -190,7 +186,7 @@ class Game {
       this.s.biome++;
       const firstLap = info.lap === 1;
       if (firstLap && !this.s.pets.includes(info.pet)) this.s.pets.push(info.pet);
-      this.events.push({ kind: 'biome', name: info.name, pet: firstLap ? PET_NAMES[info.pet] : null, bonus: Math.round(BIOME_BONUS * 100) });
+      this.events.push({ kind: 'biome', name: this.t('biome.' + info.id), pet: firstLap ? this.t('pet.' + info.pet) : null, bonus: Math.round(BIOME_BONUS * 100) });
       info = this.biomeInfo();
     }
   }
@@ -252,25 +248,9 @@ class Game {
     return true;
   }
 
-  static missionTitle(m) {
-    switch (m.type) {
-      case 'eco':
-        return `Colher ${m.target} vezes com o planeta tranquilo ou radiante`;
-      case 'harvest':
-        return `Colher ${m.target} vezes`;
-      case 'manual':
-        return `Colher ${m.target} plantas com um clique`;
-      case 'tree':
-        return 'Plantar 1 árvore';
-      case 'buy':
-        return `Fazer ${m.target} compras na loja`;
-      case 'pet':
-        return `Fazer carinho em ${m.target} bichinhos`;
-      case 'seeds':
-        return `Juntar ${compact(m.target)} sementes hoje`;
-      default:
-        return m.type;
-    }
+  missionTitle(m) {
+    const n = m.type === 'seeds' ? compact(m.target, this.t) : m.target;
+    return this.t('mission.' + m.type, n);
   }
 
   /** Carinho num bichinho (clique na aba). */
@@ -326,8 +306,8 @@ class Game {
     const items = [];
     items.push({
       id: 'arvore',
-      title: 'Plantar árvore',
-      desc: `Ajuda a restaurar o ${b.name} e rende sementes sozinha`,
+      title: this.t('shop.arvore'),
+      desc: this.t('shop.arvore.desc', this.t('biome.' + b.id)),
       level: s.trees,
       max: Infinity,
       goal: `${s.trees}/${b.need}`,
@@ -335,32 +315,32 @@ class Game {
     });
     items.push({
       id: 'canteiro',
-      title: 'Novo canteiro',
-      desc: 'Mais um canteiro para plantar',
+      title: this.t('shop.canteiro'),
+      desc: this.t('shop.canteiro.desc'),
       level: s.plots.length,
       max: MAX_PLOTS,
       cost: Math.round(15 * Math.pow(2.2, s.plots.length - START_PLOTS)),
     });
     items.push({
       id: 'regador',
-      title: 'Regador',
-      desc: 'Plantas crescem 25% mais rápido',
+      title: this.t('shop.regador'),
+      desc: this.t('shop.regador.desc'),
       level: s.upgrades.regador,
       max: Infinity,
       cost: Math.round(25 * Math.pow(2.6, s.upgrades.regador)),
     });
     items.push({
       id: 'adubo',
-      title: 'Adubo',
-      desc: '+2 sementes por colheita (antes dos bônus)',
+      title: this.t('shop.adubo'),
+      desc: this.t('shop.adubo.desc'),
       level: s.upgrades.adubo,
       max: Infinity,
       cost: Math.round(30 * Math.pow(2.4, s.upgrades.adubo)),
     });
     items.push({
       id: 'chapeu',
-      title: 'Chapéu de palha',
-      desc: 'Em dia quente, o ritmo cai só para 90% (em vez de 70%)',
+      title: this.t('shop.chapeu'),
+      desc: this.t('shop.chapeu.desc'),
       level: s.upgrades.chapeu,
       max: 1,
       cost: 60,
@@ -371,8 +351,8 @@ class Game {
       const adopted = s.pets.filter((p) => EXTRA_PETS.includes(p)).length;
       items.push({
         id: 'pet:' + id,
-        title: 'Adotar ' + PET_NAMES[id].toLowerCase(),
-        desc: 'Um novo ajudante: +15% em todas as colheitas',
+        title: this.t('shop.pet', this.t('pet.' + id)),
+        desc: this.t('shop.pet.desc'),
         level: adopted,
         max: adopted + locked.length,
         cost: Math.round(120 * Math.pow(2, adopted)),
@@ -423,15 +403,15 @@ class Game {
       moodSpeed: moodSpeed(this.mood, this.s.upgrades.chapeu > 0),
       rate: this.ratePerSecond(),
       bonus: Math.round((this.bonus() - 1) * 100),
-      biome: { id: b.id, name: b.name, lap: b.lap, trees: this.s.trees, need: b.need, restored: this.s.biome },
+      biome: { id: b.id, name: this.t('biome.' + b.id), lap: b.lap, trees: this.s.trees, need: b.need, restored: this.s.biome },
       biomes: BIOMES.map((x, i) => {
         const lapOf = Math.floor(this.s.biome / BIOMES.length);
         const pos = this.s.biome % BIOMES.length;
         const state = lapOf > 0 || i < pos ? 'done' : i === pos ? 'current' : 'locked';
-        return { id: x.id, name: x.name, pet: PET_NAMES[x.pet], petId: x.pet, need: this.biomeInfo(lapOf * BIOMES.length + i).need, state };
+        return { id: x.id, name: this.t('biome.' + x.id), pet: this.t('pet.' + x.pet), petId: x.pet, need: this.biomeInfo(lapOf * BIOMES.length + i).need, state };
       }),
       missions: d.missions.map((m) => ({
-        title: Game.missionTitle(m),
+        title: this.missionTitle(m),
         type: m.type,
         progress: m.progress,
         target: m.target,
@@ -451,4 +431,4 @@ class Game {
   }
 }
 
-module.exports = { Game, moodSpeed, BIOMES, PET_NAMES, GROW_SECONDS, AUTO_HARVEST_SECONDS };
+module.exports = { Game, moodSpeed, BIOMES, GROW_SECONDS, AUTO_HARVEST_SECONDS };

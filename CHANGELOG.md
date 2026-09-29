@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.8.1
+- Botão opcional "Apoiar o projeto" (PayPal) no rodapé do painel, no comando *AI Eco Meter: Apoiar o projeto* e na página da extensão. / Optional "Support the project" (PayPal) button.
+
+## 0.8.0
+- **English version**: dashboard, game, pets, notifications and settings are now available in Portuguese and English. Choose it in `aiEcoMeter.language` (automatic follows the VS Code display language).
+- **Versão em inglês**: painel, jogo, bichinhos, notificações e configurações agora em português e inglês. Escolha em `aiEcoMeter.language` (automático segue o idioma do VS Code).
+- Números formatados no padrão de cada idioma.
+
 ## 0.7.1
 - Corrigido: as conquistas do painel apareciam empilhadas no canto superior direito (e criavam uma barra de rolagem horizontal).
 

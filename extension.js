@@ -5,6 +5,7 @@ const { Collector } = require('./src/collector');
 const { buildSnapshot, DEFAULT_MULTIPLIERS } = require('./src/impact');
 const { EditorPets } = require('./src/editorPets');
 const { GameHost } = require('./src/gameHost');
+const I18n = require('./media/i18n');
 
 const MANUAL_KEY = 'aiEcoMeter.manualEntries';
 const ACHIEVEMENTS_KEY = 'aiEcoMeter.achievements';
@@ -12,13 +13,18 @@ const GAME_KEY = 'aiEcoMeter.game'; // só para migrar o progresso da 0.6.0
 const VERSION_KEY = 'aiEcoMeter.lastVersion';
 
 /**
- * Destaques mostrados uma única vez depois de atualizar. Versões sem entrada aqui (correções
- * pequenas) atualizam em silêncio. Se a pessoa pular versões, vale o destaque mais recente.
+ * Versões com destaque mostrado uma única vez depois de atualizar (texto em i18n: "news.<versão>").
+ * Versões fora desta lista (correções pequenas) atualizam em silêncio. Se a pessoa pular versões,
+ * vale o destaque mais recente.
  */
-const WHATS_NEW = {
-  '0.7.0': 'Novo objetivo no Quintal do planeta: restaure os biomas brasileiros (Cerrado, Caatinga, Pantanal, Mata Atlântica e Amazônia) e ganhe tamanduá, tatu-bola, arara, mico-leão e onça. E agora tem missões do dia!',
-  '0.6.0': 'Agora os bichinhos farmam sozinhos! Abra a aba Bichinhos e conheça o Quintal do planeta: eles cultivam, colhem sementes e você compra melhorias, árvores e novos bichinhos.',
-};
+const WHATS_NEW = ['0.6.0', '0.7.0', '0.8.0'];
+
+/** Doação voluntária para o projeto (PayPal). */
+const SUPPORT_URL = 'https://www.paypal.com/donate/?business=paulomjunior7%40gmail.com';
+
+function openSupport() {
+  return vscode.env.openExternal(vscode.Uri.parse(SUPPORT_URL));
+}
 
 /** Presets para registrar uso de ferramentas sem log local. */
 // Valores por pergunta divulgados pelas próprias empresas (média/mediana de um prompt de texto).
@@ -27,16 +33,19 @@ const OFFICIAL = {
   Gemini: { wh: 0.24, ml: 0.26, ref: 'Google, 2025' },
 };
 
-const PRESETS = [
-  { label: '$(comment) Pergunta rápida', detail: '~200 tokens de entrada, ~400 de resposta', inTok: 200, outTok: 400, perPrompt: true },
-  { label: '$(code) Resposta longa / geração de código', detail: '~1.500 de entrada, ~1.500 de resposta', inTok: 1500, outTok: 1500, perPrompt: true },
-  { label: '$(file-text) Análise de documento/arquivo grande', detail: '~20.000 de entrada, ~1.500 de resposta', inTok: 20000, outTok: 1500 },
-  { label: '$(search) Pesquisa profunda / agente', detail: '~150.000 de entrada, ~8.000 de resposta', inTok: 150000, outTok: 8000 },
-  { label: '$(file-media) Geração de imagem', detail: '≈ 3 Wh por imagem (estimativa)', whFixed: 3 },
-  { label: '$(edit) Personalizado…', detail: 'Informe os tokens de entrada e saída', custom: true },
-];
+function presets() {
+  const p = (icon, key, extra) => Object.assign({ label: `$(${icon}) ${t('manual.preset.' + key)}`, detail: t(`manual.preset.${key}.detail`) }, extra);
+  return [
+    p('comment', 'quick', { inTok: 200, outTok: 400, perPrompt: true }),
+    p('code', 'long', { inTok: 1500, outTok: 1500, perPrompt: true }),
+    p('file-text', 'doc', { inTok: 20000, outTok: 1500 }),
+    p('search', 'agent', { inTok: 150000, outTok: 8000 }),
+    p('file-media', 'image', { whFixed: 3 }),
+    p('edit', 'custom', { custom: true }),
+  ];
+}
 
-const TOOLS = ['ChatGPT', 'GitHub Copilot', 'Gemini', 'Claude.ai', 'Cursor', 'Perplexity', 'Outro'];
+const tools = () => ['ChatGPT', 'GitHub Copilot', 'Gemini', 'Claude.ai', 'Cursor', 'Perplexity', t('manual.other')];
 
 let collector;
 let statusItem;
@@ -52,6 +61,31 @@ let gameTimer;
 let lastGameView = null;
 let pendingOffline = 0;
 const yardViews = new Set();
+const webviewModes = new Map(); // webview -> modo (para recarregar ao trocar de idioma)
+let t = I18n.create('pt');
+
+/** Idioma escolhido: configuração "aiEcoMeter.language" ou, em "auto", o idioma do VS Code. */
+function resolveLang() {
+  const setting = vscode.workspace.getConfiguration('aiEcoMeter').get('language', 'auto');
+  return I18n.resolve(setting, vscode.env.language);
+}
+
+/** Aplica o idioma; se mudou, recarrega as abas abertas para trocar todos os textos. */
+function applyLang() {
+  const lang = resolveLang();
+  if (lang === t.lang) return false;
+  t = I18n.create(lang);
+  if (game) game.setLang(lang);
+  if (panel) panel.title = t('webview.title');
+  for (const [w, mode] of webviewModes) {
+    try {
+      w.html = getHtml(w, mode);
+    } catch {
+      webviewModes.delete(w);
+    }
+  }
+  return true;
+}
 
 function readCfg() {
   const c = vscode.workspace.getConfiguration('aiEcoMeter');
@@ -93,6 +127,7 @@ async function refresh() {
     for (const m of manual) records.push(m);
     sources.manual = { enabled: true, requests: manual.reduce((n, m) => n + (m.requests || 1), 0) };
     latest = buildSnapshot(records, sources, cfg);
+    latest.cfg.lang = t.lang;
     await keepAchievements(latest.achievements);
     updateStatusBar(cfg);
     const pct = latest.ranges.today.wh / cfg.dailyBudgetWh;
@@ -134,7 +169,7 @@ async function keepAchievements(list) {
   if (!firstRun) {
     for (const a of fresh) {
       vscode.window
-        .showInformationMessage(`Conquista desbloqueada: ${a.title}. ${a.desc}.`, 'Ver conquistas')
+        .showInformationMessage(t('ach.unlocked', t(`ach.${a.id}.title`), t(`ach.${a.id}.desc`)), t('ach.view'))
         .then((pick) => pick && openPanel());
     }
   }
@@ -165,28 +200,22 @@ async function announceUpdate(existingUser) {
   await ctx.globalState.update(VERSION_KEY, current);
 
   if (!previous) {
-    const pick = await vscode.window.showInformationMessage(
-      'AI Eco Meter instalado! Acompanhe a energia e a água do seu uso de IA e conheça os bichinhos do quintal.',
-      'Abrir painel',
-      'Abrir quintal',
-    );
-    if (pick === 'Abrir painel') openPanel();
-    else if (pick === 'Abrir quintal') vscode.commands.executeCommand('aiEcoMeter.yardPanel.focus');
+    const pick = await vscode.window.showInformationMessage(t('news.welcome'), t('news.openPanel'), t('news.openYard'));
+    if (pick === t('news.openPanel')) openPanel();
+    else if (pick === t('news.openYard')) vscode.commands.executeCommand('aiEcoMeter.yardPanel.focus');
     return;
   }
 
   // destaque mais recente entre as versões novas desde a última usada
-  const news = Object.keys(WHATS_NEW)
-    .filter((v) => compareVersions(v, previous) > 0 && compareVersions(v, current) <= 0)
-    .sort(compareVersions);
+  const news = WHATS_NEW.filter((v) => compareVersions(v, previous) > 0 && compareVersions(v, current) <= 0).sort(compareVersions);
   if (!news.length) return;
   const pick = await vscode.window.showInformationMessage(
-    `AI Eco Meter atualizado para a ${current}. ${WHATS_NEW[news[news.length - 1]]}`,
-    'Ver novidades',
-    'Abrir quintal',
+    t('news.updated', current, t('news.' + news[news.length - 1])),
+    t('news.seeChanges'),
+    t('news.openYard'),
   );
-  if (pick === 'Ver novidades') showChangelog();
-  else if (pick === 'Abrir quintal') vscode.commands.executeCommand('aiEcoMeter.yardPanel.focus');
+  if (pick === t('news.seeChanges')) showChangelog();
+  else if (pick === t('news.openYard')) vscode.commands.executeCommand('aiEcoMeter.yardPanel.focus');
 }
 
 // ------------------------------------------------------------------ jogo
@@ -224,6 +253,7 @@ function gameAction(action) {
 
 function startGame() {
   game = new GameHost(ctx.globalStorageUri.fsPath, ctx.globalState.get(GAME_KEY, null));
+  game.setLang(t.lang);
   gameTimer = setInterval(gameStep, 1000);
 }
 
@@ -239,7 +269,7 @@ function broadcast() {
 // ------------------------------------------------------------------ status bar
 
 function fmt(n, d) {
-  return n.toLocaleString('pt-BR', { maximumFractionDigits: d, minimumFractionDigits: 0 });
+  return n.toLocaleString(t.locale, { maximumFractionDigits: d, minimumFractionDigits: 0 });
 }
 function fmtEnergy(wh) {
   if (wh >= 1000) return fmt(wh / 1000, 2) + ' kWh';
@@ -250,9 +280,9 @@ function fmtWater(ml) {
   return fmt(ml, ml < 10 ? 1 : 0) + ' mL';
 }
 function fmtTokens(n) {
-  if (n >= 1e9) return fmt(n / 1e9, 1) + ' bi';
-  if (n >= 1e6) return fmt(n / 1e6, 1) + ' mi';
-  if (n >= 1e3) return fmt(n / 1e3, 1) + ' mil';
+  if (n >= 1e9) return fmt(n / 1e9, 1) + t('unit.billion');
+  if (n >= 1e6) return fmt(n / 1e6, 1) + t('unit.million');
+  if (n >= 1e3) return fmt(n / 1e3, 1) + t('unit.thousand');
   return fmt(n, 0);
 }
 
@@ -261,19 +291,19 @@ function updateStatusBar(cfg) {
     statusItem.hide();
     return;
   }
-  const t = latest.ranges.today;
-  const pct = t.wh / cfg.dailyBudgetWh;
-  const mood = pct < 0.25 ? 'radiante' : pct < 0.6 ? 'tranquila' : pct < 1 ? 'preocupada' : 'com calor';
-  statusItem.text = `$(globe) ${fmtEnergy(t.wh)} · ${fmtWater(t.ml)}`;
+  const td = latest.ranges.today;
+  const pct = td.wh / cfg.dailyBudgetWh;
+  const mood = t('status.mood.' + (pct < 0.25 ? 'radiant' : pct < 0.6 ? 'calm' : pct < 1 ? 'worried' : 'hot'));
+  statusItem.text = `$(globe) ${fmtEnergy(td.wh)} · ${fmtWater(td.ml)}`;
   const md = new vscode.MarkdownString(undefined, true);
   md.isTrusted = true;
-  md.appendMarkdown(`**Pegada da IA hoje**, o planeta está *${mood}*\n\n`);
+  md.appendMarkdown(`${t('status.title', mood)}\n\n`);
   md.appendMarkdown(`| | |\n|---|---|\n`);
-  md.appendMarkdown(`| Energia | ${fmtEnergy(t.wh)} (${fmt(pct * 100, 0)}% da meta) |\n`);
-  md.appendMarkdown(`| Água | ${fmtWater(t.ml)} |\n`);
-  md.appendMarkdown(`| CO₂ | ${fmt(t.g, t.g < 10 ? 1 : 0)} g |\n`);
-  md.appendMarkdown(`| Tokens | ${fmtTokens(t.tokens)} em ${fmt(t.requests, 0)} requisições |\n\n`);
-  md.appendMarkdown(`[Abrir painel](command:aiEcoMeter.openPanel) · [Registrar uso manual](command:aiEcoMeter.logManual)`);
+  md.appendMarkdown(`| ${t('status.energy')} | ${fmtEnergy(td.wh)} (${t('status.goal', fmt(pct * 100, 0))}) |\n`);
+  md.appendMarkdown(`| ${t('status.water')} | ${fmtWater(td.ml)} |\n`);
+  md.appendMarkdown(`| CO₂ | ${fmt(td.g, td.g < 10 ? 1 : 0)} g |\n`);
+  md.appendMarkdown(`| ${t('status.tokens')} | ${t('status.tokensLine', fmtTokens(td.tokens), fmt(td.requests, 0))} |\n\n`);
+  md.appendMarkdown(`[${t('status.openPanel')}](command:aiEcoMeter.openPanel) · [${t('status.logManual')}](command:aiEcoMeter.logManual)`);
   statusItem.tooltip = md;
   statusItem.backgroundColor = pct >= 1 ? new vscode.ThemeColor('statusBarItem.warningBackground') : undefined;
   statusItem.show();
@@ -288,19 +318,21 @@ function getHtml(webview, mode) {
   const petsJs = webview.asWebviewUri(vscode.Uri.joinPath(media, 'pets.js'));
   const spritesJs = webview.asWebviewUri(vscode.Uri.joinPath(media, 'sprites.js'));
   const gameJs = webview.asWebviewUri(vscode.Uri.joinPath(media, 'game.js'));
+  const i18nJs = webview.asWebviewUri(vscode.Uri.joinPath(media, 'i18n.js'));
   const nonce = crypto.randomBytes(16).toString('base64');
   return `<!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="${t.locale}">
 <head>
 <meta charset="UTF-8">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${webview.cspSource} data:; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}';">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link href="${css}" rel="stylesheet">
-<title>Pegada da IA</title>
+<title>${t('webview.title')}</title>
 </head>
-<body data-mode="${mode}">
-<main id="app" class="app"><div class="loading"><div class="spinner"></div>Lendo seus logs de IA…</div></main>
+<body data-mode="${mode}" data-lang="${t.lang}">
+<main id="app" class="app"><div class="loading"><div class="spinner"></div>${t('loading')}</div></main>
 <div id="tip" class="tooltip" role="tooltip"></div>
+<script nonce="${nonce}" src="${i18nJs}"></script>
 <script nonce="${nonce}" src="${spritesJs}"></script>
 <script nonce="${nonce}" src="${petsJs}"></script>
 <script nonce="${nonce}" src="${js}"></script>
@@ -313,9 +345,15 @@ function attach(webview, mode, disposables) {
   webview.options = { enableScripts: true, localResourceRoots: [vscode.Uri.joinPath(ctx.extensionUri, 'media')] };
   webview.html = getHtml(webview, mode);
   webviews.add(webview);
+  webviewModes.set(webview, mode);
   if (mode === 'yard') yardViews.add(webview);
   disposables.push(
-    { dispose: () => yardViews.delete(webview) },
+    {
+      dispose: () => {
+        yardViews.delete(webview);
+        webviewModes.delete(webview);
+      },
+    },
     webview.onDidReceiveMessage((msg) => {
       switch (msg && msg.type) {
         case 'ready':
@@ -347,6 +385,9 @@ function attach(webview, mode, disposables) {
         case 'openPanel':
           vscode.commands.executeCommand('aiEcoMeter.openPanel');
           break;
+        case 'support':
+          openSupport();
+          break;
       }
     }),
   );
@@ -375,7 +416,7 @@ function openPanel() {
     panel.reveal();
     return;
   }
-  panel = vscode.window.createWebviewPanel('aiEcoMeter.panel', 'Pegada da IA', vscode.ViewColumn.Active, {
+  panel = vscode.window.createWebviewPanel('aiEcoMeter.panel', t('webview.title'), vscode.ViewColumn.Active, {
     enableScripts: true,
     retainContextWhenHidden: true,
   });
@@ -394,9 +435,9 @@ function openPanel() {
 // ------------------------------------------------------------------ registro manual
 
 async function logManual() {
-  const preset = await vscode.window.showQuickPick(PRESETS, {
-    title: 'Registrar uso de IA (1/3) — que tipo de uso?',
-    placeHolder: 'Para ferramentas que não deixam log local',
+  const preset = await vscode.window.showQuickPick(presets(), {
+    title: t('manual.step1'),
+    placeHolder: t('manual.step1.hint'),
   });
   if (!preset) return;
 
@@ -404,21 +445,21 @@ async function logManual() {
   let outTok = preset.outTok || 0;
   if (preset.custom) {
     const toInt = (v) => parseInt(String(v).replace(/\D/g, ''), 10);
-    const a = await vscode.window.showInputBox({ title: 'Tokens de entrada (seu texto + contexto)', value: '1000', validateInput: (v) => (toInt(v) >= 0 ? null : 'Número inválido') });
+    const a = await vscode.window.showInputBox({ title: t('manual.inTokens'), value: '1000', validateInput: (v) => (toInt(v) >= 0 ? null : t('manual.invalid')) });
     if (a === undefined) return;
-    const b = await vscode.window.showInputBox({ title: 'Tokens de saída (resposta da IA)', value: '800', validateInput: (v) => (toInt(v) >= 0 ? null : 'Número inválido') });
+    const b = await vscode.window.showInputBox({ title: t('manual.outTokens'), value: '800', validateInput: (v) => (toInt(v) >= 0 ? null : t('manual.invalid')) });
     if (b === undefined) return;
     inTok = toInt(a);
     outTok = toInt(b);
   }
 
-  const tool = await vscode.window.showQuickPick(TOOLS, { title: 'Registrar uso de IA (2/3) — qual ferramenta?' });
+  const tool = await vscode.window.showQuickPick(tools(), { title: t('manual.step2') });
   if (!tool) return;
 
   const countStr = await vscode.window.showInputBox({
-    title: 'Registrar uso de IA (3/3) — quantas vezes?',
+    title: t('manual.step3'),
     value: '1',
-    validateInput: (v) => (/^\d+$/.test(v.trim()) && +v > 0 && +v <= 10000 ? null : 'Informe um número entre 1 e 10000'),
+    validateInput: (v) => (/^\d+$/.test(v.trim()) && +v > 0 && +v <= 10000 ? null : t('manual.countInvalid')),
   });
   if (!countStr) return;
   const count = parseInt(countStr, 10);
@@ -442,19 +483,17 @@ async function logManual() {
   }
   await ctx.globalState.update(MANUAL_KEY, [...manualEntries(), entry]);
   await refresh();
-  vscode.window.showInformationMessage(
-    `Registrado: ${count}× ${tool}` + (official ? ` (valor oficial: ${official.wh} Wh por pergunta, ${official.ref}).` : '.') + ' Obrigado por acompanhar sua pegada!',
-  );
+  vscode.window.showInformationMessage(t('manual.done', count, tool, official));
 }
 
 async function clearManual() {
   const n = manualEntries().length;
   if (!n) {
-    vscode.window.showInformationMessage('Não há registros manuais.');
+    vscode.window.showInformationMessage(t('manual.none'));
     return;
   }
-  const ok = await vscode.window.showWarningMessage(`Apagar ${n} registro(s) manual(is)?`, { modal: true }, 'Apagar');
-  if (ok !== 'Apagar') return;
+  const ok = await vscode.window.showWarningMessage(t('manual.confirmClear', n), { modal: true }, t('manual.clear'));
+  if (ok !== t('manual.clear')) return;
   await ctx.globalState.update(MANUAL_KEY, []);
   refresh();
 }
@@ -468,6 +507,7 @@ function schedule() {
 
 function activate(context) {
   ctx = context;
+  t = I18n.create(resolveLang());
   collector = new Collector();
   editorPets = new EditorPets();
   // verificado antes da primeira coleta, que já grava conquistas
@@ -495,6 +535,7 @@ function activate(context) {
     vscode.commands.registerCommand('aiEcoMeter.logManual', logManual),
     vscode.commands.registerCommand('aiEcoMeter.clearManual', clearManual),
     vscode.commands.registerCommand('aiEcoMeter.showChangelog', showChangelog),
+    vscode.commands.registerCommand('aiEcoMeter.support', openSupport),
     vscode.commands.registerCommand('aiEcoMeter.togglePets', () => {
       const c = vscode.workspace.getConfiguration('aiEcoMeter');
       return c.update('pets.enabled', !c.get('pets.enabled', true), vscode.ConfigurationTarget.Global);
@@ -504,6 +545,7 @@ function activate(context) {
     ),
     vscode.workspace.onDidChangeConfiguration((e) => {
       if (e.affectsConfiguration('aiEcoMeter')) {
+        applyLang();
         schedule();
         refresh();
       }

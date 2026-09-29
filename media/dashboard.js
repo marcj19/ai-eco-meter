@@ -24,12 +24,13 @@
   };
   let tipTimer = 0;
 
-  const RANGES = { today: 'Hoje', week: '7 dias', month: '30 dias', all: 'Tudo' };
-  const RANGE_CTX = { today: 'hoje', week: 'nos últimos 7 dias', month: 'nos últimos 30 dias', all: 'desde o início' };
+  // idioma: vem do HTML (definido pela extensão) e é confirmado a cada snapshot
+  let t = window.EcoI18n.create(document.body.dataset.lang || 'pt');
+  const RANGE_KEYS = ['today', 'week', 'month', 'all'];
 
   // ============================================================ formatação
 
-  const nf = (v, d) => v.toLocaleString('pt-BR', { maximumFractionDigits: d, minimumFractionDigits: 0 });
+  const nf = (v, d) => v.toLocaleString(t.locale, { maximumFractionDigits: d, minimumFractionDigits: 0 });
   const dec = (v) => (v < 10 ? 2 : v < 100 ? 1 : 0);
   const F = {
     energy(wh) {
@@ -48,9 +49,9 @@
       return nf(g, g < 10 ? 1 : 0) + ' g';
     },
     tokens(n) {
-      if (n >= 1e9) return nf(n / 1e9, 2) + ' bi';
-      if (n >= 1e6) return nf(n / 1e6, 1) + ' mi';
-      if (n >= 1e4) return nf(n / 1e3, 0) + ' mil';
+      if (n >= 1e9) return nf(n / 1e9, 2) + t('unit.billion');
+      if (n >= 1e6) return nf(n / 1e6, 1) + t('unit.million');
+      if (n >= 1e4) return nf(n / 1e3, 0) + t('unit.thousand');
       return nf(n, 0);
     },
     int: (n) => nf(n, 0),
@@ -60,8 +61,8 @@
       if (sec < 60) return nf(sec, sec < 10 ? 1 : 0) + ' s';
       if (sec < 3600) return nf(sec / 60, sec < 600 ? 1 : 0) + ' min';
       if (sec < 86400 * 2) return nf(sec / 3600, 1) + ' h';
-      if (sec < 86400 * 365) return nf(sec / 86400, 1) + ' dias';
-      return nf(sec / 86400 / 365, 1) + ' anos';
+      if (sec < 86400 * 365) return nf(sec / 86400, 1) + t('unit.days');
+      return nf(sec / 86400 / 365, 1) + t('unit.years');
     },
     distance(m) {
       return m >= 1000 ? nf(m / 1000, dec(m / 1000)) + ' km' : nf(m, 0) + ' m';
@@ -72,6 +73,7 @@
     String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
   function prettyModel(m) {
+    if (m === 'antigravity') return t('model.antigravity');
     const s = String(m || '').replace(/-\d{8}$/, '');
     if (/^claude-/i.test(s)) {
       const parts = s.split('-').slice(1);
@@ -88,7 +90,7 @@
     codex: { name: 'Codex CLI', color: '#10a37f' },
     gemini: { name: 'Gemini CLI', color: '#4285f4' },
     antigravity: { name: 'Antigravity', color: '#a78bfa' },
-    manual: { name: 'Registro manual', color: '#9aa7b4' },
+    manual: { name: '', color: '#9aa7b4' },
   };
 
   // ============================================================ humor
@@ -100,33 +102,9 @@
     return 'hot';
   }
 
-  const MOOD_LABEL = { radiant: 'Radiante', calm: 'Tranquila', worried: 'Preocupada', hot: 'Com calor!' };
-  const MESSAGES = {
-    radiant: [
-      'Tô fresquinha! Seu uso de IA está levinho hoje.',
-      'Assim dá gosto: pouca energia, bastante resultado.',
-      'Os ventos estão a favor, e as turbinas agradecem.',
-      'Nem suei. Até as borboletas vieram passear.',
-    ],
-    calm: [
-      'Tudo sob controle por aqui. Seguimos no equilíbrio.',
-      'Ritmo bom! Pedidos objetivos ajudam a manter assim.',
-      'Uso moderado, nada que um pouco de consciência não resolva.',
-      'Tô de boa, mas de olho no termômetro.',
-    ],
-    worried: [
-      'Hmm… está esquentando um pouquinho por aqui.',
-      'Já passamos da metade da meta. Que tal agrupar pedidos?',
-      'Contexto grande = mais energia. Uma sessão nova pode ajudar.',
-      'Minhas geleiras pediram para eu te avisar…',
-    ],
-    hot: [
-      'Ufa, tá quente! A meta diária de energia estourou.',
-      'Meus oceanos estão suando. Que tal uma pausa?',
-      'Meta estourada. Amanhã a gente compensa, combinado?',
-      'Se eu tivesse um ventilador, ligava agora. Mas aí gastaria energia…',
-    ],
-  };
+  const moodLabel = (mood) => t('mood.' + mood);
+  const messagesOf = (mood) => t('messages.' + mood);
+  const sourceName = (key) => (key === 'manual' ? t('source.manual') : (SOURCE[key] || SOURCE.manual).name);
 
   // ============================================================ SVGs
 
@@ -189,7 +167,7 @@
         </g></g>
       </g>`;
 
-    return `<svg class="scene-svg" viewBox="0 0 320 180" role="img" aria-label="Planeta mascote: ${MOOD_LABEL[mood]}">
+    return `<svg class="scene-svg" viewBox="0 0 320 180" role="img" aria-label="${esc(t('scene.aria', moodLabel(mood)))}">
       <defs>
         <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${sky[0]}"/><stop offset="1" stop-color="${sky[1]}"/></linearGradient>
         <radialGradient id="ocean" cx=".35" cy=".3" r=".85"><stop offset="0" stop-color="#7fd6ff"/><stop offset=".7" stop-color="#2f8fe0"/><stop offset="1" stop-color="#1c6fc0"/></radialGradient>
@@ -346,20 +324,20 @@
     const perDay = r.wh / r.budgetDays;
     const pct = perDay / cfg.dailyBudgetWh;
     const mood = moodOf(pct);
-    const msgs = MESSAGES[mood];
+    const msgs = messagesOf(mood);
     const msg = msgs[(state.msgSeed + new Date().getDate()) % msgs.length];
     const fact =
       state.range === 'today'
-        ? `Hoje: <b>${F.energy(r.wh)}</b>, ${F.pct(pct)} da meta diária de ${F.energy(cfg.dailyBudgetWh)}.`
-        : `Média de <b>${F.energy(perDay)}/dia</b> ${RANGE_CTX[state.range]}, ${F.pct(pct)} da meta diária.`;
+        ? t('hero.today', F.energy(r.wh), F.pct(pct), F.energy(cfg.dailyBudgetWh))
+        : t('hero.range', F.energy(perDay), t('rangeCtx.' + state.range), F.pct(pct));
     return `<section class="card hero mood-${mood}">
       ${sceneSvg(mood)}
-      <div class="hero-body"><div class="bubble"><span class="mood-chip">${MOOD_LABEL[mood]}</span><br><span id="msg">${msg}</span><span class="fact">${fact}</span></div></div>
+      <div class="hero-body"><div class="bubble"><span class="mood-chip">${moodLabel(mood)}</span><br><span id="msg">${msg}</span><span class="fact">${fact}</span></div></div>
     </section>`;
   }
 
   function tabs() {
-    return `<nav class="tabs" role="tablist">${Object.entries(RANGES)
+    return `<nav class="tabs" role="tablist">${RANGE_KEYS.map((k) => [k, t('range.' + k)])
       .map(([k, v]) => `<button role="tab" data-range="${k}" class="${k === state.range ? 'active' : ''}" aria-selected="${k === state.range}">${v}</button>`)
       .join('')}</nav>`;
   }
@@ -376,17 +354,17 @@
     const col = (p, base) => (p >= 1 ? 'var(--heat)' : p >= 0.6 ? 'var(--energy)' : base);
     return `<section class="gauges">
       <div class="card gauge energy">
-        <div class="label">Energia</div>
+        <div class="label">${t('gauge.energy')}</div>
         ${batterySvg(pe)}
         <div class="value">${count(r.wh, 'energy')}</div>
-        <div class="sub">${F.pct(pe)} de ${F.energy(eBudget)}</div>
+        <div class="sub">${t('gauge.of', F.pct(pe), F.energy(eBudget))}</div>
         <div class="meter"><span style="--w:${Math.min(100, pe * 100)}%;background:${col(pe, 'var(--leaf)')}"></span></div>
       </div>
       <div class="card gauge water">
-        <div class="label">Água</div>
+        <div class="label">${t('gauge.water')}</div>
         ${glassSvg(pw)}
         <div class="value">${count(r.ml, 'water')}</div>
-        <div class="sub">${F.pct(pw)} de ${F.water(wBudget)}</div>
+        <div class="sub">${t('gauge.of', F.pct(pw), F.water(wBudget))}</div>
         <div class="meter"><span style="--w:${Math.min(100, pw * 100)}%;background:${col(pw, 'var(--water)')}"></span></div>
       </div>
     </section>`;
@@ -400,21 +378,21 @@
     const card = (icon, color, label, value, sub) =>
       `<div class="card kpi"><div class="k-label">${kpiIcon(icon, color)}${label}</div><div class="k-value">${value}</div><div class="k-sub">${sub}</div></div>`;
     return `<section class="kpis">
-      ${card('tokens', 'var(--c-in)', 'Tokens', count(r.tokens, 'tokens'), `${F.tokens(input)} entrada · ${F.tokens(r.tok.out)} saída`)}
-      ${card('req', 'var(--water)', 'Requisições', count(r.requests, 'int'), `em ${r.activeDays} dia${r.activeDays === 1 ? '' : 's'} ativo${r.activeDays === 1 ? '' : 's'}`)}
-      ${card('avg', 'var(--energy)', 'Média por requisição', count(avgReq, 'tokens') + ' tk', `${F.tokens(avgOut)} tokens gerados`)}
-      ${card('day', 'var(--leaf)', 'Média por dia ativo', count(r.tokens / days, 'tokens') + ' tk', `${F.energy(r.wh / days)} · ${F.water(r.ml / days)}`)}
-      ${card('co2', 'var(--carbon)', 'CO₂ equivalente', count(r.g, 'co2'), `rede a ${F.int(cfg.co2gPerKWh)} g/kWh`)}
-      ${card('clock', 'var(--c-cw)', 'Horário de pico', r.peakHour >= 0 ? `${r.peakHour}h–${(r.peakHour + 1) % 24}h` : '—', r.peakHour >= 0 ? `${F.int(r.hours[r.peakHour])} requisições` : 'sem dados')}
+      ${card('tokens', 'var(--c-in)', t('kpi.tokens'), count(r.tokens, 'tokens'), t('kpi.tokensSub', F.tokens(input), F.tokens(r.tok.out)))}
+      ${card('req', 'var(--water)', t('kpi.requests'), count(r.requests, 'int'), t('kpi.activeDays', r.activeDays))}
+      ${card('avg', 'var(--energy)', t('kpi.avgReq'), count(avgReq, 'tokens') + ' tk', t('kpi.generated', F.tokens(avgOut)))}
+      ${card('day', 'var(--leaf)', t('kpi.avgDay'), count(r.tokens / days, 'tokens') + ' tk', `${F.energy(r.wh / days)} · ${F.water(r.ml / days)}`)}
+      ${card('co2', 'var(--carbon)', t('kpi.co2'), count(r.g, 'co2'), t('kpi.grid', F.int(cfg.co2gPerKWh)))}
+      ${card('clock', 'var(--c-cw)', t('kpi.peak'), r.peakHour >= 0 ? t('hourRange', r.peakHour) : '—', r.peakHour >= 0 ? t('kpi.peakReq', F.int(r.hours[r.peakHour])) : t('kpi.noData'))}
     </section>`;
   }
 
   function composition(r) {
     const cats = [
-      ['in', 'Entrada', 'var(--c-in)'],
-      ['cw', 'Cache (escrita)', 'var(--c-cw)'],
-      ['cr', 'Cache (leitura)', 'var(--c-cr)'],
-      ['out', 'Saída', 'var(--c-out)'],
+      ['in', t('cat.in'), 'var(--c-in)'],
+      ['cw', t('cat.cw'), 'var(--c-cw)'],
+      ['cr', t('cat.cr'), 'var(--c-cr)'],
+      ['out', t('cat.out'), 'var(--c-out)'],
     ];
     const bar = (vals, total) =>
       `<div class="stackbar">${cats
@@ -422,38 +400,39 @@
         .join('')}${vals.other > 0 ? `<span style="--w:${(vals.other / total) * 100}%;background:var(--c-other)"></span>` : ''}</div>`;
     const tokTotal = r.tokens || 1;
     const whTotal = r.wh || 1;
-    const t = r.tok;
+    const tr = t;
+    const tk = r.tok;
     const e = r.en;
     let insight = '';
-    if (t.cr > 0 && r.wh > 0) {
-      insight = `<b>${F.pct(t.cr / tokTotal)}</b> dos tokens foram leituras de cache, mas elas respondem por só <b>${F.pct(e.cr / whTotal)}</b> da energia. Já o texto gerado (saída) é ${F.pct(t.out / tokTotal)} dos tokens e <b>${F.pct(e.out / whTotal)}</b> da energia: gerar é bem mais caro que ler.`;
+    if (tk.cr > 0 && r.wh > 0) {
+      insight = tr('comp.insightCache', F.pct(tk.cr / tokTotal), F.pct(e.cr / whTotal), F.pct(tk.out / tokTotal), F.pct(e.out / whTotal));
     } else if (r.tokens > 0) {
-      insight = `Gerar texto (saída) custa cerca de 10× mais energia por token do que ler a entrada. Respostas mais curtas e diretas economizam!`;
+      insight = tr('comp.insightPlain');
     }
     return `<section class="card">
-      <h2>Para onde vai a energia</h2>
-      <div class="row-label"><span>Tokens</span><span>${F.tokens(r.tokens)}</span></div>
-      ${bar({ ...t, other: 0 }, tokTotal)}
-      <div class="row-label"><span>Energia</span><span>${F.energy(r.wh)}</span></div>
+      <h2>${t('comp.title')}</h2>
+      <div class="row-label"><span>${t('comp.tokens')}</span><span>${F.tokens(r.tokens)}</span></div>
+      ${bar({ ...tk, other: 0 }, tokTotal)}
+      <div class="row-label"><span>${t('comp.energy')}</span><span>${F.energy(r.wh)}</span></div>
       ${bar(e, whTotal)}
-      <div class="legend">${cats.map(([, n, c]) => `<span><i style="background:${c}"></i>${n}</span>`).join('')}${e.other > 0 ? '<span><i style="background:var(--c-other)"></i>Valor fixo (oficial/imagem)</span>' : ''}</div>
+      <div class="legend">${cats.map(([, n, c]) => `<span><i style="background:${c}"></i>${n}</span>`).join('')}${e.other > 0 ? `<span><i style="background:var(--c-other)"></i>${t('cat.other')}</span>` : ''}</div>
       ${insight ? `<div class="insight">${insight}</div>` : ''}
     </section>`;
   }
 
   function equivalences(r) {
     const items = [
-      ['phone', F.num(r.wh / 15), 'cargas completas de celular'],
-      ['bulb', F.duration((r.wh / 10) * 3600), 'de lâmpada LED (10 W) acesa'],
-      ['tv', F.duration((r.wh / 77) * 3600), 'de streaming de vídeo'],
-      ['microwave', F.duration(r.wh * 3.6), 'de micro-ondas ligado (1.000 W)'],
-      ['glass', F.num(r.ml / 250), 'copos d’água (250 mL)'],
-      ['shower', F.duration(r.ml / 150), 'de chuveiro aberto (9 L/min)'],
-      ['car', F.distance(r.g / 0.12), 'rodados de carro a gasolina'],
-      ['tree', F.num(r.g / 60), 'dias de uma árvore absorvendo CO₂'],
+      ['phone', F.num(r.wh / 15), t('eq.phone')],
+      ['bulb', F.duration((r.wh / 10) * 3600), t('eq.bulb')],
+      ['tv', F.duration((r.wh / 77) * 3600), t('eq.tv')],
+      ['microwave', F.duration(r.wh * 3.6), t('eq.microwave')],
+      ['glass', F.num(r.ml / 250), t('eq.glass')],
+      ['shower', F.duration(r.ml / 150), t('eq.shower')],
+      ['car', F.distance(r.g / 0.12), t('eq.car')],
+      ['tree', F.num(r.g / 60), t('eq.tree')],
     ];
     return `<section class="card">
-      <h2>Isso equivale a…</h2>
+      <h2>${t('eq.title')}</h2>
       <div class="equivs">${items
         .map(
           ([ic, v, l], i) =>
@@ -464,12 +443,12 @@
   }
 
   function chartPoints(s) {
-    const wd = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
+    const wd = t('chart.weekdays');
     const dayLabel = (p) => {
       const [, m, d] = p.key.split('-');
-      return `${wd[new Date(p.ts).getDay()]} ${d}/${m}`;
+      return t('chart.date', wd[new Date(p.ts).getDay()], d, m);
     };
-    if (state.range === 'today') return { pts: s.hourly.map((p) => ({ ...p, label: `${p.key}h–${(p.key + 1) % 24}h` })), daily: false };
+    if (state.range === 'today') return { pts: s.hourly.map((p) => ({ ...p, label: t('hourRange', p.key) })), daily: false };
     let arr = s.daily;
     if (state.range === 'week') arr = arr.slice(-7);
     else if (state.range === 'month') arr = arr.slice(-30);
@@ -493,17 +472,17 @@
       .map((p, i) => {
         const v = val(p);
         const cls = ['bar', daily && i === last ? 'today' : '', budget && v > budget ? 'over' : ''].join(' ');
-        const tip = `<b>${esc(p.label)}</b><br>Energia: ${F.energy(p.wh)} · Água: ${F.water(p.ml)}<br>${F.tokens(p.tokens)} tokens · ${F.int(p.requests)} req.`;
+        const tip = t('chart.tip', esc(p.label), F.energy(p.wh), F.water(p.ml), F.tokens(p.tokens), F.int(p.requests));
         return `<div class="bar-wrap" data-tip="${esc(tip)}"><div class="${cls}" style="--h:${(v / max) * 100}%;--i:${i};--bar-c:${color}"></div></div>`;
       })
       .join('');
     const axis = daily
       ? [pts[0], pts[Math.floor(last / 2)], pts[last]].map((p) => `<span>${esc(p.label.split(' ')[1])}</span>`).join('')
-      : '<span>0h</span><span>6h</span><span>12h</span><span>18h</span><span>23h</span>';
-    const budgetLine = budget ? `<div class="budget-line" style="bottom:${(budget / max) * 100}%"><span>meta</span></div>` : '';
+      : [0, 6, 12, 18, 23].map((h) => `<span>${t('hourTick', h)}</span>`).join('');
+    const budgetLine = budget ? `<div class="budget-line" style="bottom:${(budget / max) * 100}%"><span>${t('chart.goal')}</span></div>` : '';
     return `<section class="card">
-      <h2>${daily ? 'Histórico diário' : 'Hoje, hora a hora'}<span class="spacer"></span>
-        <span class="seg">${[['wh', 'Energia'], ['ml', 'Água'], ['tk', 'Tokens']]
+      <h2>${daily ? t('chart.daily') : t('chart.hourly')}<span class="spacer"></span>
+        <span class="seg">${['wh', 'ml', 'tk'].map((k) => [k, t('metric.' + k)])
           .map(([k, n]) => `<button data-metric="${k}" class="${k === m ? 'active' : ''}">${n}</button>`)
           .join('')}</span></h2>
       <div class="chart"><div class="bars">${bars}${budgetLine}</div><div class="axis">${axis}</div></div>
@@ -515,14 +494,14 @@
     const top = r.models.slice(0, 6);
     const max = top[0].wh || 1;
     return `<section class="card">
-      <h2>Por modelo</h2>
+      <h2>${t('models.title')}</h2>
       <div class="models">${top
         .map((m) => {
           const src = SOURCE[m.source] || SOURCE.manual;
           return `<div class="model-row">
             <div class="m-top"><span class="m-name" title="${esc(m.model)}"><i class="src-dot" style="background:${src.color}"></i>${esc(prettyModel(m.model))}</span><span class="m-wh">${F.energy(m.wh)}</span></div>
             <div class="meter"><span style="--w:${(m.wh / max) * 100}%;background:${src.color}"></span></div>
-            <div class="m-sub">${esc(src.name)} · ${F.int(m.requests)} req. · ${F.tokens(m.tokens)} tokens · ${F.water(m.wh * state.snap.cfg.waterLPerKWh)}</div>
+            <div class="m-sub">${esc(sourceName(m.source))} · ${F.int(m.requests)} req. · ${F.tokens(m.tokens)} tokens · ${F.water(m.wh * state.snap.cfg.waterLPerKWh)}</div>
           </div>`;
         })
         .join('')}</div>
@@ -534,23 +513,15 @@
     const inputish = r.tok.in + r.tok.cr + r.tok.cw;
     const avgCtx = r.requests ? inputish / r.requests : 0;
     if (avgCtx > 40000)
-      tips.push(`Cada chamada carrega em média <b>${F.tokens(avgCtx)} tokens</b> de contexto. Começar uma sessão nova (ex.: <code>/clear</code>) ao trocar de assunto evita arrastar histórico desnecessário.`);
+      tips.push(t('tips.context', F.tokens(avgCtx)));
     const big = r.models.filter((m) => /opus|fable|gpt-5(?!.*mini)|o3|pro/i.test(m.model)).reduce((a, m) => a + m.wh, 0);
     if (r.wh > 0 && big / r.wh > 0.5)
-      tips.push(`<b>${F.pct(big / r.wh)}</b> da energia veio de modelos grandes. Para tarefas simples (renomear, formatar, perguntas rápidas), um modelo menor resolve e gasta bem menos.`);
+      tips.push(t('tips.bigModels', F.pct(big / r.wh)));
     if (inputish > 0 && r.tok.cr / inputish > 0.7)
-      tips.push(`Ótimo reaproveitamento de cache (<b>${F.pct(r.tok.cr / inputish)}</b> da entrada)! Ler do cache custa uma fração da energia de reprocessar o contexto.`);
+      tips.push(t('tips.cache', F.pct(r.tok.cr / inputish)));
     if (r.peakHour >= 0 && (r.peakHour >= 23 || r.peakHour < 5))
-      tips.push('Seu pico de uso é de madrugada. Descansar também é sustentável, para você e para o planeta.');
-    tips.push(
-      'Pedidos claros e específicos significam menos idas e voltas, e menos energia gasta..',
-      'Agrupe várias perguntas pequenas em uma única mensagem em vez de mandar uma de cada vez.',
-      'Evite colar arquivos inteiros quando só um trecho importa: menos tokens de entrada.',
-      'Regenerar uma resposta repete todo o custo. Às vezes, ajustar o pedido rende mais.',
-      'Nem toda busca precisa de IA: um <code>grep</code> ou a documentação oficial às vezes resolvem mais rápido.',
-      'Peça respostas objetivas (“responda em 3 linhas”): a saída é a parte mais cara da geração.',
-      'Data centers usam água para resfriar servidores, e a geração de energia também consome água.',
-    );
+      tips.push(t('tips.night'));
+    tips.push(...t('tips.generic'));
     return tips;
   }
 
@@ -558,12 +529,12 @@
     const tips = tipsFor(r, cfg);
     state.tipIdx %= tips.length;
     return `<section class="card">
-      <h2>Dica consciente</h2>
+      <h2>${t('tip.title')}</h2>
       <div class="tip-card">
         <svg viewBox="0 0 48 48" aria-hidden="true">${EQ_ICON.bulb}</svg>
         <div style="flex:1;min-width:0">
           <div class="tip-text" id="tipText">${tips[state.tipIdx]}</div>
-          <div class="tip-nav"><div class="dots">${tips.map((_, i) => `<i class="${i === state.tipIdx ? 'on' : ''}"></i>`).join('')}</div><span class="spacer" style="flex:1"></span><button class="btn" data-act="nextTip">Próxima ›</button></div>
+          <div class="tip-nav"><div class="dots">${tips.map((_, i) => `<i class="${i === state.tipIdx ? 'on' : ''}"></i>`).join('')}</div><span class="spacer" style="flex:1"></span><button class="btn" data-act="nextTip">${t('tip.next')}</button></div>
         </div>
       </div>
     </section>`;
@@ -572,7 +543,7 @@
   function achievements(s) {
     const earned = s.achievements.filter((a) => a.earned).length;
     return `<section class="card">
-      <h2>Conquistas <span style="text-transform:none;letter-spacing:0;font-weight:400">${earned}/${s.achievements.length}</span></h2>
+      <h2>${t('ach.title')} <span style="text-transform:none;letter-spacing:0;font-weight:400">${earned}/${s.achievements.length}</span></h2>
       <div class="badges">${s.achievements
         .map((a) => {
           const ring =
@@ -581,10 +552,12 @@
               : '';
           const pct = a.earned
             ? a.earnedAt
-              ? `Conquistada em ${new Date(a.earnedAt).toLocaleDateString('pt-BR')}`
-              : 'Conquistada!'
-            : `${Math.round(a.progress * 100)}% concluído`;
-          return `<div class="badge ${a.earned ? 'earned' : 'locked'}" data-tip="${esc(`<b>${a.title}</b><br>${a.desc}<br><i>${pct}</i>`)}"><div class="medal pixel">${ring}${badgeIcon(a.id)}</div><div class="b-title">${a.title}</div></div>`;
+              ? t('ach.earnedOn', new Date(a.earnedAt).toLocaleDateString(t.locale))
+              : t('ach.earned')
+            : t('ach.progress', Math.round(a.progress * 100));
+          const title = t(`ach.${a.id}.title`);
+          const desc = t(`ach.${a.id}.desc`);
+          return `<div class="badge ${a.earned ? 'earned' : 'locked'}" data-tip="${esc(`<b>${title}</b><br>${desc}<br><i>${pct}</i>`)}"><div class="medal pixel">${ring}${badgeIcon(a.id)}</div><div class="b-title">${title}</div></div>`;
         })
         .join('')}</div>
     </section>`;
@@ -594,11 +567,11 @@
     const row = (key, info, extra) => {
       const src = SOURCE[key];
       let st;
-      if (!info || !info.enabled) st = 'desativado';
-      else if (key === 'manual') st = info.requests ? `${F.int(info.requests)} registros` : 'nenhum registro';
-      else if (key === 'antigravity') st = info.requests ? `${F.int(info.requests)} conversas · estimativa` : 'nenhuma conversa encontrada';
-      else st = info.requests ? `${F.int(info.requests)} req. · ${F.int(info.files)} arquivos` : 'nenhum log encontrado';
-      return `<div class="source ${!info || !info.enabled || !info.requests ? 'off' : ''}" ${extra || ''}><i class="src-dot" style="background:${src.color}"></i>${src.name}<span class="s-state">${st}</span></div>`;
+      if (!info || !info.enabled) st = t('src.disabled');
+      else if (key === 'manual') st = info.requests ? t('src.records', F.int(info.requests)) : t('src.noRecords');
+      else if (key === 'antigravity') st = info.requests ? t('src.conversations', F.int(info.requests)) : t('src.noConversations');
+      else st = info.requests ? t('src.reqFiles', F.int(info.requests), F.int(info.files)) : t('src.noLogs');
+      return `<div class="source ${!info || !info.enabled || !info.requests ? 'off' : ''}" ${extra || ''}><i class="src-dot" style="background:${src.color}"></i>${sourceName(key)}<span class="s-state">${st}</span></div>`;
     };
     return `<div class="sources">
       ${row('claude', s.sources.claude, s.sources.claude && s.sources.claude.path ? `title="${esc(s.sources.claude.path)}"` : '')}
@@ -611,33 +584,34 @@
 
   function footer(s) {
     const c = s.cfg;
-    const t = new Date(s.generatedAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    const time = new Date(s.generatedAt).toLocaleTimeString(t.locale, { hour: '2-digit', minute: '2-digit' });
+    const method = t('method.body', {
+      out: nf(c.whPer1kOutput, 3),
+      inp: nf(c.whPer1kInput, 3),
+      cw: nf(c.whPer1kCacheWrite, 3),
+      cr: nf(c.whPer1kCacheRead, 3),
+      mult: Object.entries(c.modelMultipliers || {}).map(([k, v]) => `${esc(k)} ×${nf(Number(v), 2)}`).join(', '),
+      water: nf(c.waterLPerKWh, 2),
+      co2: F.int(c.co2gPerKWh),
+    });
     return `<section class="card">
-      <h2>Fontes de dados</h2>
+      <h2>${t('footer.sources')}</h2>
       ${sourcesList(s)}
       <div class="actions" style="margin-top:12px">
-        <button class="btn primary" data-act="logManual">＋ Registrar uso manual</button>
-        <button class="btn" data-act="refresh"><span class="spin">⟳</span> Atualizar</button>
-        <button class="btn" data-act="openSettings">⚙ Ajustar estimativas</button>
-        ${MODE === 'sidebar' ? '<button class="btn" data-act="openPanel">⤢ Painel completo</button>' : ''}
+        <button class="btn primary" data-act="logManual">${t('btn.logManual')}</button>
+        <button class="btn" data-act="refresh"><span class="spin">⟳</span> ${t('btn.refresh')}</button>
+        <button class="btn" data-act="openSettings">⚙ ${t('btn.adjust')}</button>
+        ${MODE === 'sidebar' ? `<button class="btn" data-act="openPanel">⤢ ${t('btn.openPanel')}</button>` : ''}
+        <button class="btn support" data-act="support" title="${esc(t('btn.support.hint'))}">${t('btn.support')}</button>
       </div>
     </section>
     <section class="card">
       <details class="method">
-        <summary>Como calculamos?</summary>
-        <p>Os números são <b>estimativas de ordem de grandeza</b>, não medições. Nenhum provedor publica o consumo exato por token, então usamos coeficientes baseados em estudos públicos e você pode ajustá-los nas configurações.</p>
-        <ul>
-          <li>Saída: <code>${nf(c.whPer1kOutput, 3)} Wh</code> por 1.000 tokens · Entrada: <code>${nf(c.whPer1kInput, 3)}</code> · Cache (escrita): <code>${nf(c.whPer1kCacheWrite, 3)}</code> · Cache (leitura): <code>${nf(c.whPer1kCacheRead, 3)}</code></li>
-          <li>Fator por modelo: ${Object.entries(c.modelMultipliers || {}).map(([k, v]) => `${esc(k)} ×${nf(Number(v), 2)}`).join(', ')}</li>
-          <li>Água: <code>${nf(c.waterLPerKWh, 2)} L/kWh</code> (resfriamento + geração de energia) · CO₂: <code>${F.int(c.co2gPerKWh)} g/kWh</code></li>
-        </ul>
-        <p>Referências: Google (2025) mediu ~0,24 Wh e ~0,26 mL de água por prompt mediano do Gemini; a Epoch AI (2025) estimou ~0,3 Wh por consulta típica ao GPT-4o; a análise de ciclo de vida da Mistral (2025) aponta ~45 mL de água e ~1,1 g CO₂e para uma resposta de 400 tokens, incluindo o treino. Uso agêntico (ferramentas como o Claude Code) envolve contextos enormes a cada chamada, por isso o consumo sobe rápido.</p>
-        <p><b>Tokens</b> do Claude Code, Codex CLI e Gemini CLI são <b>reais</b>, lidos dos logs de cada ferramenta. O <b>Antigravity</b> grava as conversas criptografadas: ali usamos uma <b>estimativa aproximada</b> pelo tamanho de cada conversa (~4 bytes por token, ~20% de texto gerado). Provavelmente fica abaixo do real, porque o agente reenvia o contexto a cada passo.</p>
-        <p>Nos <b>registros manuais</b> de ChatGPT e Gemini (perguntas rápidas e respostas longas), usamos os valores por pergunta divulgados pelas próprias empresas: ChatGPT ≈ 0,34 Wh e 0,32 mL (OpenAI, 2025); Gemini ≈ 0,24 Wh e 0,26 mL (Google, 2025).</p>
-        <p>Nenhum dado sai do seu computador: tudo é lido dos logs locais.</p>
+        <summary>${t('method.summary')}</summary>
+        ${method}
       </details>
     </section>
-    <div class="updated">Atualizado às ${t}</div>`;
+    <div class="updated">${t('footer.updated', time)}</div>`;
   }
 
   function emptyView(s) {
@@ -653,15 +627,15 @@
           <text x="160" y="22" font-size="12" font-weight="700" fill="var(--muted)" class="sparkle s2">z</text>
         </g>
       </svg>
-      <h3>Ainda não encontrei uso de IA por aqui</h3>
-      <p>Leio automaticamente os logs locais do <b>Claude Code</b>, <b>Codex CLI</b>, <b>Gemini CLI</b> e <b>Antigravity</b>. Usa ChatGPT, Copilot ou Gemini? Registre manualmente e acompanhe sua pegada.</p>
+      <h3>${t('empty.title')}</h3>
+      <p>${t('empty.text')}</p>
       <div class="actions">
-        <button class="btn primary" data-act="logManual">＋ Registrar uso manual</button>
-        <button class="btn" data-act="refresh"><span class="spin">⟳</span> Procurar de novo</button>
-        <button class="btn" data-act="openSettings">⚙ Configurações</button>
+        <button class="btn primary" data-act="logManual">${t('btn.logManual')}</button>
+        <button class="btn" data-act="refresh"><span class="spin">⟳</span> ${t('btn.searchAgain')}</button>
+        <button class="btn" data-act="openSettings">⚙ ${t('btn.settings')}</button>
       </div>
     </section>
-    ${s ? `<section class="card"><h2>Fontes de dados</h2>${sourcesList(s)}</section>` : ''}`;
+    ${s ? `<section class="card"><h2>${t('footer.sources')}</h2>${sourcesList(s)}</section>` : ''}`;
   }
 
   // ============================================================ render
@@ -709,21 +683,21 @@
     let mood = 'calm';
     const facts = [];
     if (s && s.hasData) {
-      const t = s.ranges.today;
-      mood = moodOf(t.wh / s.cfg.dailyBudgetWh);
-      if (t.requests) {
+      const td = s.ranges.today;
+      mood = moodOf(td.wh / s.cfg.dailyBudgetWh);
+      if (td.requests) {
         facts.push(
-          `Hoje: ${F.energy(t.wh)} e ${F.water(t.ml)} de água.`,
-          `Isso dá ${F.num(t.wh / 15)} cargas de celular.`,
-          `${F.tokens(t.tokens)} tokens hoje. Haja conversa!`,
-          `Já foi ${F.pct(t.wh / s.cfg.dailyBudgetWh)} da meta de hoje.`,
-          `Dava pra ver ${F.duration((t.wh / 77) * 3600)} de vídeo com essa energia.`,
+          t('fact.today', F.energy(td.wh), F.water(td.ml)),
+          t('fact.phones', F.num(td.wh / 15)),
+          t('fact.tokens', F.tokens(td.tokens)),
+          t('fact.goal', F.pct(td.wh / s.cfg.dailyBudgetWh)),
+          t('fact.video', F.duration((td.wh / 77) * 3600)),
         );
       } else {
-        facts.push('Nenhuma IA hoje ainda. Que paz.', 'Dia tranquilo por aqui.');
+        facts.push(...t('fact.noAI'));
       }
-      if (mood === 'hot') facts.push('Tá quente hoje, hein.', 'Bora dar uma pausa?');
-      if (mood === 'radiant') facts.push('Dia leve. Gostei.');
+      if (mood === 'hot') facts.push(...t('fact.hot'));
+      if (mood === 'radiant') facts.push(t('fact.radiant'));
     }
     // na aba Bichinhos os bichinhos sempre aparecem, junto com os adotados no jogo
     const extra = MODE === 'yard' && window.EcoGame ? window.EcoGame.extraPets() : [];
@@ -797,7 +771,7 @@
       state.msgSeed++;
       const r = state.snap.ranges[state.range];
       const mood = moodOf(r.wh / r.budgetDays / state.snap.cfg.dailyBudgetWh);
-      const msgs = MESSAGES[mood];
+      const msgs = messagesOf(mood);
       const el = document.getElementById('msg');
       if (el) el.textContent = msgs[(state.msgSeed + new Date().getDate()) % msgs.length];
       scene.classList.remove('poke');
@@ -821,8 +795,8 @@
 
   // tooltip
   app.addEventListener('mousemove', (ev) => {
-    const t = /** @type {HTMLElement} */ (ev.target).closest('[data-tip]');
-    const html = t && /** @type {HTMLElement} */ (t).dataset.tip;
+    const hit = /** @type {HTMLElement} */ (ev.target).closest('[data-tip]');
+    const html = hit && /** @type {HTMLElement} */ (hit).dataset.tip;
     if (!html || !html.includes('<')) {
       tipEl.classList.remove('show');
       return;
@@ -847,6 +821,8 @@
     if (msg && msg.type === 'snapshot') {
       const first = !state.snap;
       state.snap = msg.snapshot;
+      const lang = state.snap && state.snap.cfg && state.snap.cfg.lang;
+      if (lang && lang !== t.lang) t = window.EcoI18n.create(lang);
       render(first);
     }
   });

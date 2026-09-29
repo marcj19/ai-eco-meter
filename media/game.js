@@ -9,6 +9,7 @@
   // a API do VS Code só pode ser obtida uma vez; o dashboard.js a compartilha
   const vscode = { postMessage: (m) => window.__vscodeApi && window.__vscodeApi.postMessage(m) };
   const { toSvg, framesFor, PETS } = window.EcoSprites;
+  const t = window.EcoI18n.create(document.body.dataset.lang || 'pt');
 
   const PAL = {
     g: '#5cc97a', G: '#2f8a4a', s: '#8b5a2b', S: '#6b4220', r: '#ff4d5e', y: '#ffd84d',
@@ -57,18 +58,18 @@
   const CHEST_ICON = ['.bbbbbb.', 'byyyyyyb', 'bbbbbbbb', 'byybbyyb', 'byyyyyyb', 'bbbbbbbb'];
 
   const MOOD = {
-    radiant: { label: 'Planeta radiante', cls: 'good' },
-    calm: { label: 'Planeta tranquilo', cls: 'good' },
-    worried: { label: 'Planeta preocupado', cls: 'mid' },
-    hot: { label: 'Planeta com calor', cls: 'bad' },
+    radiant: { label: t('game.mood.radiant'), cls: 'good' },
+    calm: { label: t('game.mood.calm'), cls: 'good' },
+    worried: { label: t('game.mood.worried'), cls: 'mid' },
+    hot: { label: t('game.mood.hot'), cls: 'bad' },
   };
 
   function nf(n) {
     n = Math.floor(n);
-    if (n >= 1e9) return (n / 1e9).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + ' bi';
-    if (n >= 1e6) return (n / 1e6).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + ' mi';
-    if (n >= 1e5) return Math.round(n / 1e3).toLocaleString('pt-BR') + ' mil';
-    return n.toLocaleString('pt-BR');
+    if (n >= 1e9) return (n / 1e9).toLocaleString(t.locale, { maximumFractionDigits: 1 }) + t('unit.billion');
+    if (n >= 1e6) return (n / 1e6).toLocaleString(t.locale, { maximumFractionDigits: 1 }) + t('unit.million');
+    if (n >= 1e5) return Math.round(n / 1e3).toLocaleString(t.locale) + t('unit.thousand');
+    return n.toLocaleString(t.locale);
   }
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
@@ -103,19 +104,19 @@
       <div class="game-trees"></div>
       <div class="game-plots"></div>
       <div class="game-hud">
-        <span class="hud-item" title="Sementes">${toSvg(SEED_ICON, PAL, 2)}<b id="gSeeds">0</b><small id="gRate"></small></span>
-        <button class="hud-item hud-biome" id="gBiome" title="Restaure o bioma plantando árvores">${toSvg(TREE_ICON, PAL, 2)}<span id="gBiomeName"></span><i class="mini-bar"><i id="gBiomeBar"></i></i></button>
+        <span class="hud-item" title="${t('game.seeds')}">${toSvg(SEED_ICON, PAL, 2)}<b id="gSeeds">0</b><small id="gRate"></small></span>
+        <button class="hud-item hud-biome" id="gBiome" title="${t('game.biomeHint')}">${toSvg(TREE_ICON, PAL, 2)}<span id="gBiomeName"></span><i class="mini-bar"><i id="gBiomeBar"></i></i></button>
         <span class="hud-mood" id="gMood"></span>
         <span class="spacer"></span>
-        <button class="hud-btn" id="gMenuBtn">Menu<span class="menu-badge" id="gBadge" hidden></span></button>
+        <button class="hud-btn" id="gMenuBtn">${t('game.menu')}<span class="menu-badge" id="gBadge" hidden></span></button>
       </div>
       <div class="game-menu" id="gMenu" hidden>
         <div class="menu-head">
           <nav class="menu-tabs">
-            <button data-tab="missoes">Missões</button><button data-tab="loja">Loja</button><button data-tab="biomas">Biomas</button>
+            <button data-tab="missoes">${t('game.tab.missoes')}</button><button data-tab="loja">${t('game.tab.loja')}</button><button data-tab="biomas">${t('game.tab.biomas')}</button>
           </nav>
           <span class="menu-seeds">${toSvg(SEED_ICON, PAL, 2)} <b id="gMenuSeeds"></b></span>
-          <button class="hud-btn" data-close>Fechar</button>
+          <button class="hud-btn" data-close>${t('game.close')}</button>
         </div>
         <div class="menu-body" id="gMenuBody"></div>
       </div>
@@ -160,7 +161,7 @@
         item.el.innerHTML = plantSvg(stage);
         item.el.classList.toggle('ripe', plot.p >= 1);
       }
-      item.el.title = plot.p >= 1 ? 'Madura! Clique para colher (+25%)' : `Crescendo: ${Math.round(plot.p * 100)}%`;
+      item.el.title = plot.p >= 1 ? t('game.ripe') : t('game.growing', Math.round(plot.p * 100));
       const cx = plotCenter(i, n);
       item.el.style.left = cx - pw / 2 + 'px';
       if (plot.p >= 1) window.EcoPets.request('plot' + i, cx);
@@ -182,13 +183,13 @@
     box.innerHTML = '';
     const tree = TREES[biome] || TREES.mata;
     for (let i = 0; i < shown; i++) {
-      const t = document.createElement('span');
+      const el = document.createElement('span');
       // espalha de forma determinística, alternando bordas e meio
       const pos = ((i * 37) % 100) / 100;
-      t.style.left = `calc(${(3 + pos * 90).toFixed(1)}% - 12px)`;
-      t.style.setProperty('--d', (i % 5) * 0.4 + 's');
-      t.innerHTML = toSvg(tree.rows, tree.pal, i % 3 === 0 ? 3 : 2);
-      box.appendChild(t);
+      el.style.left = `calc(${(3 + pos * 90).toFixed(1)}% - 12px)`;
+      el.style.setProperty('--d', (i % 5) * 0.4 + 's');
+      el.innerHTML = toSvg(tree.rows, tree.pal, i % 3 === 0 ? 3 : 2);
+      box.appendChild(el);
     }
   }
 
@@ -202,12 +203,12 @@
   }
 
   function toast(html, big) {
-    const t = /** @type {any} */ (layer.querySelector('#gToast'));
-    t.innerHTML = html;
-    t.classList.toggle('big', !!big);
-    t.classList.add('show');
-    clearTimeout(t._timer);
-    t._timer = setTimeout(() => t.classList.remove('show'), big ? 9000 : 7000);
+    const box = /** @type {any} */ (layer.querySelector('#gToast'));
+    box.innerHTML = html;
+    box.classList.toggle('big', !!big);
+    box.classList.add('show');
+    clearTimeout(box._timer);
+    box._timer = setTimeout(() => box.classList.remove('show'), big ? 9000 : 7000);
   }
 
   function confetti() {
@@ -228,16 +229,16 @@
 
   function renderHud() {
     layer.querySelector('#gSeeds').textContent = nf(state.seeds);
-    layer.querySelector('#gRate').textContent = `+${nf(state.rate * 60)}/min`;
+    layer.querySelector('#gRate').textContent = t('game.perMin', nf(state.rate * 60));
     const b = state.biome;
-    layer.querySelector('#gBiomeName').textContent = `${b.name}${b.lap > 1 ? ` (${b.lap}ª)` : ''} ${b.trees}/${b.need}`;
+    layer.querySelector('#gBiomeName').textContent = `${b.name}${b.lap > 1 ? t('game.lap', b.lap) : ''} ${b.trees}/${b.need}`;
     /** @type {HTMLElement} */ (layer.querySelector('#gBiomeBar')).style.width = Math.min(100, (b.trees / b.need) * 100) + '%';
     const m = MOOD[state.mood] || MOOD.calm;
     const moodEl = layer.querySelector('#gMood');
     const eff = state.moodSpeed >= 1 ? `+${Math.round((state.moodSpeed - 1) * 100)}%` : `−${Math.round((1 - state.moodSpeed) * 100)}%`;
     moodEl.textContent = `${m.label}: ${eff}`;
     moodEl.className = 'hud-mood ' + m.cls;
-    /** @type {HTMLElement} */ (moodEl).title = 'O ritmo da colheita acompanha o seu uso de IA hoje: dia leve rende mais, dia pesado deixa os bichinhos com calor.';
+    /** @type {HTMLElement} */ (moodEl).title = t('game.moodHint');
     const claimable = state.missions.filter((x) => x.done && !x.claimed).length;
     const badge = /** @type {HTMLElement} */ (layer.querySelector('#gBadge'));
     badge.hidden = !claimable;
@@ -263,11 +264,11 @@
     if (!menuOpen) return;
     layer.querySelector('#gMenuSeeds').textContent = nf(state.seeds);
     layer.querySelectorAll('.menu-tabs button').forEach((b) => {
-      const t = /** @type {HTMLElement} */ (b).dataset.tab;
-      b.classList.toggle('active', t === tab);
-      if (t === 'missoes') {
+      const tabId = /** @type {HTMLElement} */ (b).dataset.tab;
+      b.classList.toggle('active', tabId === tab);
+      if (tabId === 'missoes') {
         const n = state.missions.filter((x) => x.done && !x.claimed).length;
-        b.textContent = n ? `Missões (${n})` : 'Missões';
+        b.textContent = n ? `${t('game.tab.missoes')} (${n})` : t('game.tab.missoes');
       }
     });
     const body = /** @type {HTMLElement} */ (layer.querySelector('#gMenuBody'));
@@ -310,10 +311,10 @@
         : it.max !== null && isFinite(it.max) && it.max > 1
           ? ` <small>${it.level}/${it.max}</small>`
           : it.level
-            ? ` <small>nív. ${it.level}</small>`
+            ? ` <small>${t('game.level', it.level)}</small>`
             : '';
       const btn = it.maxed
-        ? '<button class="buy" disabled>Completo</button>'
+        ? `<button class="buy" disabled>${t('game.maxed')}</button>`
         : `<button class="buy" data-buy="${esc(it.id)}" ${it.affordable ? '' : 'disabled'}>${toSvg(SEED_ICON, PAL, 1)} ${nf(it.cost)}</button>`;
       setHtml(card.querySelector('.sc-title'), esc(it.title) + lvl);
       setHtml(card.querySelector('.sc-btn'), btn);
@@ -327,18 +328,18 @@
       const card = upsert(row, 'm' + i, i, '<div class="sc-top"><span class="sc-title"></span><span class="sc-btn"></span></div><div class="mission-bar"><i></i></div><div class="sc-desc"></div>');
       card.className = 'shop-card mission' + (m.type === 'eco' ? ' eco' : '') + (m.done && !m.claimed ? ' can' : '') + (m.claimed ? ' claimed' : '');
       card.title = m.title;
-      setHtml(card.querySelector('.sc-title'), (m.type === 'eco' ? '<span class="eco-tag">consciente</span> ' : '') + esc(m.title));
+      setHtml(card.querySelector('.sc-title'), (m.type === 'eco' ? `<span class="eco-tag">${t('game.ecoTag')}</span> ` : '') + esc(m.title));
       const btn = m.claimed
-        ? '<button class="buy" disabled>Resgatada</button>'
+        ? `<button class="buy" disabled>${t('game.claimed')}</button>`
         : `<button class="buy" data-claim="${i}" ${m.done ? '' : 'disabled'}>${toSvg(SEED_ICON, PAL, 1)} +${nf(m.reward)}</button>`;
       setHtml(card.querySelector('.sc-btn'), btn);
       /** @type {HTMLElement} */ (card.querySelector('.mission-bar i')).style.width = Math.min(100, (m.progress / m.target) * 100) + '%';
-      setHtml(card.querySelector('.sc-desc'), `${nf(m.progress)}/${nf(m.target)}` + (m.type === 'eco' ? ' · só conta com o planeta tranquilo ou radiante' : ''));
+      setHtml(card.querySelector('.sc-desc'), `${nf(m.progress)}/${nf(m.target)}` + (m.type === 'eco' ? t('game.ecoNote') : ''));
     });
     const chest = upsert(row, 'chest', state.missions.length, '<div class="chest-icon"></div><div class="sc-desc"></div>');
     chest.className = 'shop-card chest' + (state.chest ? ' opened' : '');
     setHtml(chest.querySelector('.chest-icon'), toSvg(CHEST_ICON, PAL, 3));
-    setHtml(chest.querySelector('.sc-desc'), state.chest ? 'Baú do dia aberto! Volte amanhã.' : 'Complete as 3 missões para abrir o baú do dia.');
+    setHtml(chest.querySelector('.sc-desc'), state.chest ? t('game.chestOpen') : t('game.chestClosed'));
   }
 
   function renderBiomes(row) {
@@ -349,15 +350,15 @@
         card.dataset.drawn = '1';
         /** @type {HTMLElement} */ (card.querySelector('.biome-pet')).innerHTML = framesFor(PETS[b.petId], 2).A;
       }
-      const status = b.state === 'done' ? 'Restaurado' : b.state === 'current' ? `${state.biome.trees}/${b.need} árvores` : `${b.need} árvores`;
+      const status = b.state === 'done' ? t('game.restored') : b.state === 'current' ? t('game.treesOf', state.biome.trees, b.need) : t('game.trees', b.need);
       setHtml(card.querySelector('.sc-title'), esc(b.name) + ` <small>${status}</small>`);
-      setHtml(card.querySelector('.sc-desc'), b.state === 'done' ? `${esc(b.pet)} mora no quintal` : `Traz: ${esc(b.pet)} · +30% nas colheitas`);
+      setHtml(card.querySelector('.sc-desc'), b.state === 'done' ? t('game.livesHere', esc(b.pet)) : t('game.brings', esc(b.pet)));
     });
     const info = upsert(row, 'binfo', state.biomes.length, '<div class="sc-desc"></div>');
     info.className = 'shop-card biome-info';
     setHtml(
       info.querySelector('.sc-desc'),
-      `Biomas restaurados: <b>${state.biome.restored}</b> · Bônus atual: <b>+${state.bonus}%</b><br>Depois da Amazônia começa uma nova volta, com metas maiores.`,
+      t('game.biomeInfo', state.biome.restored, state.bonus),
     );
   }
 
@@ -382,24 +383,24 @@
       } else if (ev.kind === 'reward') {
         floatText(layer.clientWidth / 2, `+${nf(ev.n)}`, 'manual');
       } else if (ev.kind === 'chest') {
-        toast(`Baú do dia: <b>+${nf(ev.n)} sementes</b>!`);
+        toast(t('game.chestToast', nf(ev.n)));
       } else if (ev.kind === 'biome') {
         confetti();
-        toast(`<b>${esc(ev.name)} restaurado!</b> ${ev.pet ? esc(ev.pet) + ' veio morar no quintal. ' : ''}+${ev.bonus}% em todas as colheitas.`, true);
+        toast(t('game.biomeToast', esc(ev.name), ev.pet ? esc(ev.pet) : '', ev.bonus), true);
       }
     }
-    if (state.offline > 0) toast(`Enquanto você estava fora, os bichinhos colheram <b>${nf(state.offline)}</b> sementes!`);
+    if (state.offline > 0) toast(t('game.offline', nf(state.offline)));
   }
 
   document.addEventListener('click', (e) => {
-    const t = /** @type {HTMLElement} */ (e.target);
-    const buy = /** @type {HTMLElement|null} */ (t.closest('[data-buy]'));
-    const claim = /** @type {HTMLElement|null} */ (t.closest('[data-claim]'));
-    const tabBtn = /** @type {HTMLElement|null} */ (t.closest('[data-tab]'));
+    const target = /** @type {HTMLElement} */ (e.target);
+    const buy = /** @type {HTMLElement|null} */ (target.closest('[data-buy]'));
+    const claim = /** @type {HTMLElement|null} */ (target.closest('[data-claim]'));
+    const tabBtn = /** @type {HTMLElement|null} */ (target.closest('[data-tab]'));
     if (buy) vscode.postMessage({ type: 'game:buy', id: buy.dataset.buy });
     else if (claim) vscode.postMessage({ type: 'game:claim', index: Number(claim.dataset.claim) });
     else if (tabBtn) openMenu(tabBtn.dataset.tab);
-    else if (t.closest('[data-close]')) openMenu(null);
+    else if (target.closest('[data-close]')) openMenu(null);
   });
 
   window.addEventListener('message', (e) => {

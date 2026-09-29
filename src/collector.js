@@ -237,7 +237,7 @@ async function antigravityConversation(file, base, prev) {
     rec: {
       ts,
       source: 'antigravity',
-      model: 'Antigravity (estimado)',
+      model: 'antigravity', // o painel mostra "Antigravity (estimado/estimated)"
       inTok: tokens - Math.round(tokens * AG_OUTPUT_SHARE),
       outTok: Math.round(tokens * AG_OUTPUT_SHARE),
       crTok: 0,

@@ -4,6 +4,7 @@
   'use strict';
 
   const { W, H, PETS, EMOTES, DECOR, toSvg, framesFor } = window.EcoSprites;
+  const t = window.EcoI18n.create(document.body.dataset.lang || 'pt');
   // No painel completo os bichinhos ficam maiores.
   const SCALE = document.body.dataset.mode === 'panel' ? 4 : 3;
 
@@ -25,7 +26,7 @@
     if (yard) return yard;
     yard = document.createElement('div');
     yard.className = 'yard';
-    yard.setAttribute('aria-label', 'Bichinhos passeando');
+    yard.setAttribute('aria-label', t('pets.aria'));
     const decor = document.createElement('div');
     decor.className = 'yard-decor';
     [8, 23, 41, 57, 72, 88].forEach((pct, i) => {
@@ -49,7 +50,7 @@
       if (!def) return;
       const el = document.createElement('div');
       el.className = 'pet';
-      el.title = def.name;
+      el.title = t('pet.' + id);
       el.innerHTML = `<div class="pet-bubble"></div><div class="pet-emote"></div><div class="pet-body"><div class="pet-sprite"></div></div>`;
       yard.appendChild(el);
       const p = {
@@ -117,7 +118,7 @@
     void p.body.offsetWidth;
     p.body.classList.add('hop');
     showEmote(p, mood === 'hot' ? 'sweat' : 'heart', 1600);
-    const line = Math.random() < 0.7 && facts.length ? pick(facts) : pick(p.def.sounds);
+    const line = Math.random() < 0.7 && facts.length ? pick(facts) : pick(t('sounds.' + p.id));
     say(p, line, 4200);
     draw(p);
   }

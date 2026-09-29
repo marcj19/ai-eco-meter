@@ -694,3 +694,7 @@ body[data-mode='yard'] .yard { top: 0; height: auto; background: none; }
 .yard[data-biome='pantanal']::after { background: repeating-linear-gradient(90deg, #5cb85c 0 8px, #4aa3df 8px 14px, #5cb85c 14px 26px); }
 .yard[data-biome='mata']::after { background: repeating-linear-gradient(90deg, #3fbf7f 0 6px, #2a8a5a 6px 9px, #3fbf7f 9px 15px); }
 .yard[data-biome='amazonia']::after { background: repeating-linear-gradient(90deg, #2e8b57 0 6px, #1f6b41 6px 9px, #2e8b57 9px 15px); }
+
+/* apoio ao projeto: discreto, sem chamar mais atenção que as ações principais */
+.btn.support { color: #ff7aa2; border-color: color-mix(in srgb, #ff7aa2 35%, transparent); }
+.btn.support:hover { background: color-mix(in srgb, #ff7aa2 12%, transparent); }

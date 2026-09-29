@@ -1,8 +1,8 @@
 {
   "name": "ai-eco-meter",
-  "displayName": "AI Eco Meter — Pegada da IA",
-  "description": "Veja, de um jeito divertido e consciente, quanta energia, água e CO₂ o seu uso de IA consome (Claude Code, Codex, Gemini CLI, Antigravity e mais), com tokens, médias e bichinhos em pixel art.",
-  "version": "0.7.1",
+  "displayName": "AI Eco Meter",
+  "description": "See, in a fun and mindful way, how much energy, water and CO₂ your AI usage consumes (Claude Code, Codex, Gemini CLI, Antigravity and more), with tokens, averages and pixel-art pets. Português e English.",
+  "version": "0.8.1",
   "publisher": "pmxtecnologia",
   "license": "MIT",
   "repository": {
@@ -13,6 +13,9 @@
     "url": "https://github.com/marcj19/ai-eco-meter/issues"
   },
   "homepage": "https://github.com/marcj19/ai-eco-meter#readme",
+  "sponsor": {
+    "url": "https://www.paypal.com/donate/?business=paulomjunior7%40gmail.com"
+  },
   "icon": "icon.png",
   "galleryBanner": {
     "color": "#1f3b2c",
@@ -34,7 +37,10 @@
     "gemini",
     "codex",
     "antigravity",
-    "pets"
+    "pets",
+    "sustainability",
+    "energy",
+    "carbon"
   ],
   "main": "./extension.js",
   "extensionKind": [
@@ -49,14 +55,14 @@
       "activitybar": [
         {
           "id": "aiEcoMeter",
-          "title": "AI Eco Meter",
+          "title": "%container.title%",
           "icon": "media/activity-icon.svg"
         }
       ],
       "panel": [
         {
           "id": "aiEcoMeterYard",
-          "title": "Bichinhos",
+          "title": "%panel.yard%",
           "icon": "media/activity-icon.svg"
         }
       ]
@@ -66,61 +72,66 @@
         {
           "type": "webview",
           "id": "aiEcoMeter.dashboard",
-          "name": "Pegada da IA"
+          "name": "%view.dashboard%"
         }
       ],
       "aiEcoMeterYard": [
         {
           "type": "webview",
           "id": "aiEcoMeter.yardPanel",
-          "name": "Bichinhos"
+          "name": "%view.yard%"
         }
       ],
       "explorer": [
         {
           "type": "webview",
           "id": "aiEcoMeter.yardExplorer",
-          "name": "Bichinhos"
+          "name": "%view.yard%"
         }
       ]
     },
     "commands": [
       {
         "command": "aiEcoMeter.openPanel",
-        "title": "Abrir painel completo",
+        "title": "%cmd.openPanel%",
         "category": "AI Eco Meter",
         "icon": "$(link-external)"
       },
       {
         "command": "aiEcoMeter.refresh",
-        "title": "Atualizar dados",
+        "title": "%cmd.refresh%",
         "category": "AI Eco Meter",
         "icon": "$(refresh)"
       },
       {
         "command": "aiEcoMeter.logManual",
-        "title": "Registrar uso manual de IA (ChatGPT, Copilot, Gemini...)",
+        "title": "%cmd.logManual%",
         "category": "AI Eco Meter",
         "icon": "$(add)"
       },
       {
         "command": "aiEcoMeter.clearManual",
-        "title": "Apagar registros manuais",
+        "title": "%cmd.clearManual%",
         "category": "AI Eco Meter"
       },
       {
         "command": "aiEcoMeter.openSettings",
-        "title": "Ajustar estimativas",
+        "title": "%cmd.openSettings%",
         "category": "AI Eco Meter"
       },
       {
         "command": "aiEcoMeter.togglePets",
-        "title": "Mostrar/esconder bichinhos",
+        "title": "%cmd.togglePets%",
         "category": "AI Eco Meter"
       },
       {
         "command": "aiEcoMeter.showChangelog",
-        "title": "Ver novidades",
+        "title": "%cmd.showChangelog%",
+        "category": "AI Eco Meter"
+      },
+      {
+        "command": "aiEcoMeter.support",
+        "title": "%cmd.support%",
         "category": "AI Eco Meter"
       }
     ],
@@ -146,71 +157,86 @@
     "configuration": {
       "title": "AI Eco Meter",
       "properties": {
+        "aiEcoMeter.language": {
+          "type": "string",
+          "default": "auto",
+          "enum": [
+            "auto",
+            "pt-BR",
+            "en"
+          ],
+          "enumDescriptions": [
+            "%cfg.language.auto%",
+            "%cfg.language.pt%",
+            "%cfg.language.en%"
+          ],
+          "markdownDescription": "%cfg.language%"
+        },
         "aiEcoMeter.dailyEnergyBudgetWh": {
           "type": "number",
           "default": 1000,
           "minimum": 1,
-          "markdownDescription": "Sua **meta diária de energia** (Wh) para uso de IA. O humor do planetinha e os medidores são relativos a ela. Referência: 1 h de streaming de vídeo ≈ 77 Wh."
+          "markdownDescription": "%cfg.dailyEnergyBudgetWh%"
         },
         "aiEcoMeter.sources.claudeCode": {
           "type": "boolean",
           "default": true,
-          "description": "Ler o uso do Claude Code a partir dos logs locais (~/.claude/projects)."
+          "description": "%cfg.sources.claudeCode%"
         },
         "aiEcoMeter.sources.codex": {
           "type": "boolean",
           "default": true,
-          "description": "Ler o uso do OpenAI Codex CLI a partir dos logs locais (~/.codex/sessions)."
+          "description": "%cfg.sources.codex%"
         },
         "aiEcoMeter.sources.geminiCli": {
           "type": "boolean",
           "default": true,
-          "description": "Ler o uso do Gemini CLI a partir dos logs locais (~/.gemini/tmp/*/chats). Tokens reais."
+          "description": "%cfg.sources.geminiCli%"
         },
         "aiEcoMeter.sources.antigravity": {
           "type": "boolean",
           "default": true,
-          "markdownDescription": "Estimar o uso do **Antigravity** (~/.gemini/antigravity). As conversas são gravadas criptografadas, então o valor é uma **estimativa aproximada** pelo tamanho de cada conversa, não tokens reais."
+          "markdownDescription": "%cfg.sources.antigravity%"
         },
         "aiEcoMeter.paths.claudeCode": {
           "type": "string",
           "default": "",
-          "description": "Pasta alternativa dos projetos do Claude Code. Vazio = ~/.claude/projects (ou $CLAUDE_CONFIG_DIR/projects)."
+          "description": "%cfg.paths.claudeCode%"
         },
         "aiEcoMeter.paths.codex": {
           "type": "string",
           "default": "",
-          "description": "Pasta alternativa das sessões do Codex. Vazio = ~/.codex/sessions (ou $CODEX_HOME/sessions)."
+          "description": "%cfg.paths.codex%"
         },
         "aiEcoMeter.coefficients.whPer1kOutputTokens": {
           "type": "number",
           "default": 1,
-          "markdownDescription": "Energia estimada (Wh) por **1.000 tokens gerados** (saída), para um modelo de porte médio. Gerar tokens é a parte mais cara da inferência."
+          "markdownDescription": "%cfg.coefficients.whPer1kOutputTokens%"
         },
         "aiEcoMeter.coefficients.whPer1kInputTokens": {
           "type": "number",
           "default": 0.1,
-          "markdownDescription": "Energia estimada (Wh) por **1.000 tokens de entrada** processados sem cache."
+          "markdownDescription": "%cfg.coefficients.whPer1kInputTokens%"
         },
         "aiEcoMeter.coefficients.whPer1kCacheWriteTokens": {
           "type": "number",
           "default": 0.12,
-          "markdownDescription": "Energia estimada (Wh) por **1.000 tokens gravados no cache** de contexto."
+          "markdownDescription": "%cfg.coefficients.whPer1kCacheWriteTokens%"
         },
         "aiEcoMeter.coefficients.whPer1kCacheReadTokens": {
           "type": "number",
           "default": 0.01,
-          "markdownDescription": "Energia estimada (Wh) por **1.000 tokens lidos do cache** (muito mais barato do que reprocessar)."
+          "markdownDescription": "%cfg.coefficients.whPer1kCacheReadTokens%"
         },
         "aiEcoMeter.waterLitersPerKWh": {
           "type": "number",
           "default": 1.8,
-          "markdownDescription": "Litros de água por kWh (resfriamento do data center + parte da água usada na geração de eletricidade)."
+          "markdownDescription": "%cfg.waterLitersPerKWh%"
         },
         "aiEcoMeter.gridCo2GramsPerKWh": {
           "type": "number",
           "default": 400,
-          "markdownDescription": "Intensidade de carbono da rede elétrica (g CO₂e/kWh). Média global ≈ 450; EUA ≈ 380."
+          "markdownDescription": "%cfg.gridCo2GramsPerKWh%"
         },
         "aiEcoMeter.modelMultipliers": {
           "type": "object",
@@ -226,23 +252,23 @@
           "additionalProperties": {
             "type": "number"
           },
-          "markdownDescription": "Multiplicador de energia por família de modelo (o primeiro trecho do nome que combinar vale). Modelos maiores gastam mais por token."
+          "markdownDescription": "%cfg.modelMultipliers%"
         },
         "aiEcoMeter.refreshIntervalSeconds": {
           "type": "number",
           "default": 60,
           "minimum": 10,
-          "description": "De quanto em quanto tempo (s) os logs são relidos."
+          "description": "%cfg.refreshIntervalSeconds%"
         },
         "aiEcoMeter.showStatusBar": {
           "type": "boolean",
           "default": true,
-          "description": "Mostrar o consumo de hoje na barra de status."
+          "description": "%cfg.showStatusBar%"
         },
         "aiEcoMeter.pets.enabled": {
           "type": "boolean",
           "default": true,
-          "description": "Mostrar bichinhos em pixel art passeando no rodapé do painel."
+          "description": "%cfg.pets.enabled%"
         },
         "aiEcoMeter.pets.list": {
           "type": "array",
@@ -263,27 +289,27 @@
               "caranguejo"
             ]
           },
-          "markdownDescription": "Quais bichinhos aparecem (até 6, pode repetir). Opções: `gato`, `cachorro`, `pato`, `capivara`, `tartaruga`, `caranguejo`."
+          "markdownDescription": "%cfg.pets.list%"
         },
         "aiEcoMeter.pets.inEditor": {
           "type": "boolean",
           "default": false,
-          "markdownDescription": "Experimental: mostrar bichinhos pequenos dentro do editor, logo depois do código da última linha visível. Eles acompanham a rolagem do arquivo. Usa um recurso não oficial das decorações do editor."
+          "markdownDescription": "%cfg.pets.inEditor%"
         },
         "aiEcoMeter.paths.gemini": {
           "type": "string",
           "default": "",
-          "description": "Pasta alternativa das sessões do Gemini CLI. Vazio = ~/.gemini/tmp."
+          "description": "%cfg.paths.gemini%"
         },
         "aiEcoMeter.paths.antigravity": {
           "type": "string",
           "default": "",
-          "description": "Pasta alternativa dos dados do Antigravity. Vazio = ~/.gemini/antigravity."
+          "description": "%cfg.paths.antigravity%"
         },
         "aiEcoMeter.game.enabled": {
           "type": "boolean",
           "default": true,
-          "markdownDescription": "Ativar o **Quintal do planeta** na aba Bichinhos: os bichinhos cultivam canteiros e colhem sementes sozinhos. O ritmo acompanha o seu uso de IA do dia."
+          "markdownDescription": "%cfg.game.enabled%"
         }
       }
     }

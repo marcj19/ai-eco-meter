@@ -26,6 +26,7 @@ class GameHost {
     this.legacy = legacyState;
     this.game = null; // só existe enquanto esta janela é a dona
     this.mood = 'calm';
+    this.lang = 'pt';
     this.basePets = [];
     this.recent = []; // eventos recentes gravados no arquivo (para as outras janelas animarem)
     this.seenEvents = new Set();
@@ -36,6 +37,11 @@ class GameHost {
   setMood(mood) {
     this.mood = mood;
     if (this.game) this.game.setMood(mood);
+  }
+
+  setLang(lang) {
+    this.lang = lang;
+    if (this.game) this.game.setLang(lang);
   }
 
   setBasePets(list) {
@@ -72,6 +78,7 @@ class GameHost {
         this.recent = [];
       }
       this.game.setMood(this.mood);
+      this.game.setLang(this.lang);
       this.game.setBasePets(this.basePets);
       this.consumeActions();
       this.game.tick(now);
@@ -90,6 +97,7 @@ class GameHost {
     this.game = null;
     const mirror = new Game(f.state, f.beat || now);
     mirror.setMood(this.mood);
+    mirror.setLang(this.lang);
     mirror.setBasePets(this.basePets);
     const view = mirror.view();
     view.offline = 0;

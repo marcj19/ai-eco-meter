@@ -229,15 +229,15 @@ function achievements(ranges, days, records, cfg) {
   const weekAvg = ranges.week.wh / 7;
 
   const list = [
-    { id: 'first', title: 'Primeira gota', desc: 'Fez a primeira requisição registrada', earned: all.requests > 0, progress: Math.min(1, all.requests) },
-    { id: 'hundred', title: 'Centena', desc: '100 requisições no total', earned: all.requests >= 100, progress: Math.min(1, all.requests / 100) },
-    { id: 'million', title: 'Milionário de tokens', desc: '1 milhão de tokens processados', earned: all.tokens >= 1e6, progress: Math.min(1, all.tokens / 1e6) },
-    { id: 'cache', title: 'Mestre do cache', desc: '70%+ da entrada reaproveitada do cache', earned: cacheShare >= 0.7, progress: Math.min(1, cacheShare / 0.7) },
-    { id: 'zen', title: 'Dia zen', desc: 'Um dia com 10+ requisições e até 25% da meta', earned: zenDay, progress: zenDay ? 1 : 0 },
-    { id: 'eco', title: 'Semana verde', desc: 'Média dos últimos 7 dias abaixo de 50% da meta', earned: ranges.week.requests > 0 && weekAvg <= budget * 0.5, progress: ranges.week.requests > 0 ? Math.min(1, (budget * 0.5) / Math.max(weekAvg, 1e-9)) : 0 },
-    { id: 'streak', title: 'Constância', desc: '7 dias seguidos usando IA', earned: best >= 7, progress: Math.min(1, best / 7) },
-    { id: 'marathon', title: 'Maratona', desc: '200+ requisições em um único dia', earned: maxReqDay >= 200, progress: Math.min(1, maxReqDay / 200) },
-    { id: 'owl', title: 'Coruja', desc: 'Usou IA entre meia-noite e 5h (vá dormir!)', earned: nightOwl, progress: nightOwl ? 1 : 0 },
+    { id: 'first', earned: all.requests > 0, progress: Math.min(1, all.requests) },
+    { id: 'hundred', earned: all.requests >= 100, progress: Math.min(1, all.requests / 100) },
+    { id: 'million', earned: all.tokens >= 1e6, progress: Math.min(1, all.tokens / 1e6) },
+    { id: 'cache', earned: cacheShare >= 0.7, progress: Math.min(1, cacheShare / 0.7) },
+    { id: 'zen', earned: zenDay, progress: zenDay ? 1 : 0 },
+    { id: 'eco', earned: ranges.week.requests > 0 && weekAvg <= budget * 0.5, progress: ranges.week.requests > 0 ? Math.min(1, (budget * 0.5) / Math.max(weekAvg, 1e-9)) : 0 },
+    { id: 'streak', earned: best >= 7, progress: Math.min(1, best / 7) },
+    { id: 'marathon', earned: maxReqDay >= 200, progress: Math.min(1, maxReqDay / 200) },
+    { id: 'owl', earned: nightOwl, progress: nightOwl ? 1 : 0 },
   ];
   return list;
 }
