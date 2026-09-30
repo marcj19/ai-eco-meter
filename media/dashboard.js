@@ -602,7 +602,7 @@
         <button class="btn" data-act="refresh"><span class="spin">⟳</span> ${t('btn.refresh')}</button>
         <button class="btn" data-act="openSettings">⚙ ${t('btn.adjust')}</button>
         ${MODE === 'sidebar' ? `<button class="btn" data-act="openPanel">⤢ ${t('btn.openPanel')}</button>` : ''}
-        <button class="btn support" data-act="support" title="${esc(t('btn.support.hint'))}">${t('btn.support')}</button>
+        ${c.support ? `<button class="btn support" data-act="support" title="${esc(t('btn.support.hint'))}">${t('btn.support')}</button>` : ''}
       </div>
     </section>
     <section class="card">

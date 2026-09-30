@@ -152,6 +152,12 @@
           "when": "view == aiEcoMeter.dashboard",
           "group": "navigation@3"
         }
+      ],
+      "commandPalette": [
+        {
+          "command": "aiEcoMeter.support",
+          "when": "aiEcoMeter.hasSupport"
+        }
       ]
     },
     "configuration": {

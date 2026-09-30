@@ -19,10 +19,14 @@ const VERSION_KEY = 'aiEcoMeter.lastVersion';
  */
 const WHATS_NEW = ['0.6.0', '0.7.0', '0.8.0'];
 
-/** Doação voluntária para o projeto (PayPal). */
+/**
+ * Link de doação voluntária (ex.: https://paypal.me/seunome). Vazio = o botão "Apoiar o projeto"
+ * e o comando ficam escondidos. Ao preencher, adicione também "sponsor": { "url": ... } no package.json.
+ */
 const SUPPORT_URL = 'https://www.paypal.com/donate/?business=paulomjunior7%40gmail.com';
 
 function openSupport() {
+  if (!SUPPORT_URL) return undefined;
   return vscode.env.openExternal(vscode.Uri.parse(SUPPORT_URL));
 }
 
@@ -128,6 +132,7 @@ async function refresh() {
     sources.manual = { enabled: true, requests: manual.reduce((n, m) => n + (m.requests || 1), 0) };
     latest = buildSnapshot(records, sources, cfg);
     latest.cfg.lang = t.lang;
+    latest.cfg.support = !!SUPPORT_URL;
     await keepAchievements(latest.achievements);
     updateStatusBar(cfg);
     const pct = latest.ranges.today.wh / cfg.dailyBudgetWh;
@@ -513,6 +518,7 @@ function activate(context) {
   // verificado antes da primeira coleta, que já grava conquistas
   const existingUser = [ACHIEVEMENTS_KEY, MANUAL_KEY, GAME_KEY].some((k) => context.globalState.get(k) !== undefined);
   startGame();
+  vscode.commands.executeCommand('setContext', 'aiEcoMeter.hasSupport', !!SUPPORT_URL);
   // deixa a janela terminar de carregar antes de mostrar a notificação
   setTimeout(() => announceUpdate(existingUser).catch(() => {}), 4000);
 
